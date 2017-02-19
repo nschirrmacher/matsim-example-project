@@ -33,6 +33,24 @@ import java.util.Set;
 import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.matsim.contrib.signals.SignalSystemsConfigGroup;
+import org.matsim.contrib.signals.data.SignalsData;
+import org.matsim.contrib.signals.data.SignalsScenarioWriter;
+import org.matsim.contrib.signals.data.signalgroups.v20.SignalControlData;
+import org.matsim.contrib.signals.data.signalgroups.v20.SignalData;
+import org.matsim.contrib.signals.data.signalgroups.v20.SignalGroupSettingsData;
+import org.matsim.contrib.signals.data.signalgroups.v20.SignalGroupsData;
+import org.matsim.contrib.signals.data.signalgroups.v20.SignalPlanData;
+import org.matsim.contrib.signals.data.signalgroups.v20.SignalSystemControllerData;
+import org.matsim.contrib.signals.data.signalsystems.v20.SignalSystemData;
+import org.matsim.contrib.signals.data.signalsystems.v20.SignalSystemsData;
+import org.matsim.contrib.signals.model.DefaultPlanbasedSignalSystemController;
+import org.matsim.contrib.signals.model.Signal;
+import org.matsim.contrib.signals.model.SignalGroup;
+import org.matsim.contrib.signals.model.SignalPlan;
+import org.matsim.contrib.signals.model.SignalSystem;
+import org.matsim.contrib.signals.utils.SignalUtils;
+
 import org.apache.log4j.Logger;
 import org.matsim.api.core.v01.Coord;
 import org.matsim.api.core.v01.Id;
@@ -109,6 +127,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	private boolean scaleMaxSpeed = false;
 
 	private boolean slowButLowMemory = false;
+	
+	private final SignalSystemData systems;
 	
 	/*package*/ final List<OsmFilter> hierarchyLayers = new ArrayList<OsmFilter>();
 
@@ -563,6 +583,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					((LinkImpl) l).setType( highway );
 				}
 				network.addLink(l);
+				if (toNode.signalized){
+					((SignalControlData) this.systems).getFactory().createSignalSystemData(Id.create(toId, SignalSystem.class));
+				}
 				this.id++;
 			}
 			if (!oneway) {
@@ -576,6 +599,10 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					((LinkImpl) l).setType( highway );
 				}
 				network.addLink(l);
+				if (fromNode.signalized){
+					SignalSystemData sys = ((SignalControlData) this.systems).getFactory().createSignalSystemData(Id.create(fromId, SignalSystem.class));
+					this.systems.addSignalSystemData(sys);
+				}
 				this.id++;
 			}
 
