@@ -77,7 +77,7 @@ import org.xml.sax.InputSource;
  * multiple overlapping areas can be specified, each with a different denseness, e.g. one only containing motorways,
  * a second one containing every link down to footways.
  *
- * @author mrieser, aneumann
+ * @author mrieser, aneumann, nschirrmacher
  */
 public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 
