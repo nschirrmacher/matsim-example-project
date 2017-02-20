@@ -128,7 +128,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 
 	private boolean slowButLowMemory = false;
 	
-	private final SignalSystemData systems;
+	private final SignalSystemsData systems;
+	private final SignalGroupsData groups;
+	private final SignalControlData control;
 	
 	/*package*/ final List<OsmFilter> hierarchyLayers = new ArrayList<OsmFilter>();
 
@@ -138,8 +140,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	 * @param network An empty network where the converted OSM data will be stored.
 	 * @param transformation A coordinate transformation to be used. OSM-data comes as WGS84, which is often not optimal for MATSim.
 	 */
-	public OsmNetworkWithLanesAndSignalsReader(final Network network, final CoordinateTransformation transformation) {
-		this(network, transformation, true);
+	public OsmNetworkWithLanesAndSignalsReader(final Network network, final CoordinateTransformation transformation, final SignalsData signalsData) {
+		this(network, transformation, true, signalsData);
 	}
 
 	/**
@@ -149,9 +151,12 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	 * @param transformation A coordinate transformation to be used. OSM-data comes as WGS84, which is often not optimal for MATSim.
 	 * @param useHighwayDefaults Highway defaults are set to standard values, if true.
 	 */
-	public OsmNetworkWithLanesAndSignalsReader(final Network network, final CoordinateTransformation transformation, final boolean useHighwayDefaults) {
+	public OsmNetworkWithLanesAndSignalsReader(final Network network, final CoordinateTransformation transformation, final boolean useHighwayDefaults, final SignalsData signalsData) {
 		this.network = network;
 		this.transform = transformation;
+		this.systems = signalsData.getSignalSystemsData();
+		this.groups = signalsData.getSignalGroupsData();
+		this.control = signalsData.getSignalControlData();
 
 		if (useHighwayDefaults) {
 			log.info("Falling back to default values.");
@@ -461,6 +466,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				}
 			}
 		}
+		// all systems are created
+		// TODO create signal groups and control
+//		SignalUtils.createAndAddSignalGroups4Signals(this.groups, system);
 
 		// free up memory
 		this.nodes.clear();
@@ -584,7 +592,13 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				}
 				network.addLink(l);
 				if (toNode.signalized){
-					((SignalControlData) this.systems).getFactory().createSignalSystemData(Id.create(toId, SignalSystem.class));
+					Id<SignalSystem> systemId = Id.create("System"+toNode.id, SignalSystem.class);
+					if (!this.systems.getSignalSystemData().containsKey(systemId)){
+						SignalSystemData system = this.systems.getFactory().createSignalSystemData(systemId);
+						this.systems.getSignalSystemData().put(systemId, system);
+					}
+					SignalData signal = this.systems.getFactory().createSignalData(Id.create("Signal"+l.getId(), Signal.class));
+					this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
 				}
 				this.id++;
 			}
@@ -600,8 +614,13 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				}
 				network.addLink(l);
 				if (fromNode.signalized){
-					SignalSystemData sys = ((SignalControlData) this.systems).getFactory().createSignalSystemData(Id.create(fromId, SignalSystem.class));
-					this.systems.addSignalSystemData(sys);
+					Id<SignalSystem> systemId = Id.create("System"+fromNode.id, SignalSystem.class);
+					if (!this.systems.getSignalSystemData().containsKey(systemId)){
+						SignalSystemData system = this.systems.getFactory().createSignalSystemData(systemId);
+						this.systems.getSignalSystemData().put(systemId, system);
+					}
+					SignalData signal = this.systems.getFactory().createSignalData(Id.create("Signal"+l.getId(), Signal.class));
+					this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
 				}
 				this.id++;
 			}
@@ -801,9 +820,10 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			}
 			if ("node".equals(name)) {
 				if (this.collectNodes) {
-					this.nodes.put(this.currentNode.id, this.currentNode);
-					this.nodeCounter.incCounter();
+					throw new UnsupportedOperationException("osm network, lanes and signals reader does not work with low memory yet.");
 				}
+				this.nodes.put(this.currentNode.id, this.currentNode);
+				this.nodeCounter.incCounter();
 				this.currentNode = null;
 			}	
 		}
