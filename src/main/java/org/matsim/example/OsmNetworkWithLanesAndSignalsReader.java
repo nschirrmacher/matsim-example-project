@@ -467,12 +467,25 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			}
 		}
 		// all systems are created
+		
+		this.id = 1;
+		for (int i = 1, n = nodes.size(); i < n; i++) {
+			OsmNode checkedNode = this.nodes.get(i);
+			if(checkedNode.used == true && checkedNode.signalized == true){
+				createSignalGroupsForSystem(this.network, this.systems, checkedNode.id);
+			}
+		}
 		// TODO create signal groups and control
 //		SignalUtils.createAndAddSignalGroups4Signals(this.groups, system);
 
 		// free up memory
 		this.nodes.clear();
 		this.ways.clear();
+	}
+	
+	private void createSignalGroupsForSystem(final Network network, final SignalSystemsData systems, final long id){
+		SignalSystemData system = this.systems.getSignalSystemData().get("System"+this.id);
+		SignalUtils.createAndAddSignalGroups4Signals(this.groups, system);
 	}
 
 	private void createLink(final Network network, final OsmWay way, final OsmNode fromNode, final OsmNode toNode, 
@@ -598,6 +611,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						this.systems.getSignalSystemData().put(systemId, system);
 					}
 					SignalData signal = this.systems.getFactory().createSignalData(Id.create("Signal"+l.getId(), Signal.class));
+					signal.setLinkId(Id.create(l.getId(), Link.class));
 					this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
 				}
 				this.id++;
@@ -620,6 +634,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						this.systems.getSignalSystemData().put(systemId, system);
 					}
 					SignalData signal = this.systems.getFactory().createSignalData(Id.create("Signal"+l.getId(), Signal.class));
+					signal.setLinkId(Id.create(l.getId(), Link.class));
 					this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
 				}
 				this.id++;
