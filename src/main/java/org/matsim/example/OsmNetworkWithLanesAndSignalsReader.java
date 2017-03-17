@@ -477,11 +477,15 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				createSignalGroupsForSystem(this.network, this.systems, checkedNode.id, ids);
 			}
 		}
+		/*
+		 * du brauchst 'ids' gar nicht:
+		 * for (SignalSystemData signalSystem : this.systems.getSignalSystemData().values()){
+		 * 	SignalUtils.createAndAddSignalGroups4Signals(this.groups, signalSystem);
+		 * }
+		 */
+		/* TODO fuer spaeter: Lane-Infos nutzen um Signals zu gruppieren, Nils&Theresa Mar'17 */
 		
 		createSignalControl(this.control, ids);
-				
-		// TODO create signal groups and control
-//		SignalUtils.createAndAddSignalGroups4Signals(this.groups, system);
 
 		// free up memory
 		this.nodes.clear();
@@ -496,17 +500,20 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	
 	private void createSignalControl(SignalControlData control, List<Id<SignalSystem>> ids) {
 		int cycle = 120;
+		/* TODO auch hier 'for (Id<SignalSystem> signalSystemId : this.systems.getSignalSystemData().keySet()) ...'
+		 * dann brauchst du Methodenparameter auch nicht mehr
+		 */
 		for (Id<SignalSystem> id : ids){
-			SignalSystemControllerData controller = control.getFactory().createSignalSystemControllerData(id);
-			control.addSignalSystemControllerData(controller);
+			SignalSystemControllerData controller = this.control.getFactory().createSignalSystemControllerData(id);
+			this.control.addSignalSystemControllerData(controller);
 			controller.setControllerIdentifier(DefaultPlanbasedSignalSystemController.IDENTIFIER);
-			SignalPlanData plan1 = control.getFactory().createSignalPlanData(Id.create("1", SignalPlan.class));
+			SignalPlanData plan1 = this.control.getFactory().createSignalPlanData(Id.create("1", SignalPlan.class));
 			controller.addSignalPlanData(plan1);
 			plan1.setStartTime(0.0);
 			plan1.setEndTime(0.0);
 			plan1.setCycleTime(cycle);
 			plan1.setOffset(0);
-			
+			// TODO signalGroupSettings fuellen. erstmal irgendwie, spaeter ueberlegen welche zusammen geschaltet werden koennen
 		}
 	}
 
@@ -635,6 +642,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					SignalData signal = this.systems.getFactory().createSignalData(Id.create("Signal"+l.getId(), Signal.class));
 					signal.setLinkId(Id.create(l.getId(), Link.class));
 					this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
+					/* TODO spaeter fuer Lanes hier pro Lane ein Signal erstellen, Nils&Theresa Mar'17 */
 				}
 				this.id++;
 			}
@@ -658,6 +666,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					SignalData signal = this.systems.getFactory().createSignalData(Id.create("Signal"+l.getId(), Signal.class));
 					signal.setLinkId(Id.create(l.getId(), Link.class));
 					this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
+					/* TODO spaeter fuer Lanes hier pro Lane ein Signal erstellen, Nils&Theresa Mar'17 */
 				}
 				this.id++;
 			}
