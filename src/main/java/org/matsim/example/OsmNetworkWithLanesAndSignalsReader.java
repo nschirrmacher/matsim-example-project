@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -469,12 +470,16 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		// all systems are created
 		
 		this.id = 1;
+		List<Id<SignalSystem>> ids = new LinkedList<Id<SignalSystem>>();
 		for (int i = 1, n = nodes.size(); i < n; i++) {
 			OsmNode checkedNode = this.nodes.get(i);
 			if(checkedNode.used == true && checkedNode.signalized == true){
-				createSignalGroupsForSystem(this.network, this.systems, checkedNode.id);
+				createSignalGroupsForSystem(this.network, this.systems, checkedNode.id, ids);
 			}
 		}
+		
+		createSignalControl(this.control, ids);
+				
 		// TODO create signal groups and control
 //		SignalUtils.createAndAddSignalGroups4Signals(this.groups, system);
 
@@ -483,9 +488,26 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		this.ways.clear();
 	}
 	
-	private void createSignalGroupsForSystem(final Network network, final SignalSystemsData systems, final long id){
+	private void createSignalGroupsForSystem(final Network network, final SignalSystemsData systems, final long id, List<Id<SignalSystem>> ids){
 		SignalSystemData system = this.systems.getSignalSystemData().get("System"+this.id);
 		SignalUtils.createAndAddSignalGroups4Signals(this.groups, system);
+		ids.add(Id.create(system.getId(), SignalSystem.class));	
+	}
+	
+	private void createSignalControl(SignalControlData control, List<Id<SignalSystem>> ids) {
+		int cycle = 120;
+		for (Id<SignalSystem> id : ids){
+			SignalSystemControllerData controller = control.getFactory().createSignalSystemControllerData(id);
+			control.addSignalSystemControllerData(controller);
+			controller.setControllerIdentifier(DefaultPlanbasedSignalSystemController.IDENTIFIER);
+			SignalPlanData plan1 = control.getFactory().createSignalPlanData(Id.create("1", SignalPlan.class));
+			controller.addSignalPlanData(plan1);
+			plan1.setStartTime(0.0);
+			plan1.setEndTime(0.0);
+			plan1.setCycleTime(cycle);
+			plan1.setOffset(0);
+			
+		}
 	}
 
 	private void createLink(final Network network, final OsmWay way, final OsmNode fromNode, final OsmNode toNode, 
