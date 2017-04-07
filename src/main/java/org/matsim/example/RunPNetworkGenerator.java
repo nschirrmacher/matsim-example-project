@@ -2,22 +2,21 @@ package org.matsim.example;
 
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.network.Network;
+import org.matsim.contrib.signals.SignalSystemsConfigGroup;
+import org.matsim.contrib.signals.data.SignalsData;
+import org.matsim.contrib.signals.data.SignalsScenarioLoader;
+import org.matsim.contrib.signals.data.SignalsScenarioWriter;
+import org.matsim.contrib.signals.data.signalgroups.v20.SignalControlData;
+import org.matsim.contrib.signals.data.signalgroups.v20.SignalGroupsData;
+import org.matsim.contrib.signals.data.signalsystems.v20.SignalSystemsData;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
+import org.matsim.core.config.ConfigWriter;
 import org.matsim.core.network.NetworkWriter;
 import org.matsim.core.network.algorithms.NetworkCleaner;
 import org.matsim.core.scenario.ScenarioUtils;
 import org.matsim.core.utils.geometry.CoordinateTransformation;
 import org.matsim.core.utils.geometry.transformations.TransformationFactory;
-
-import org.matsim.contrib.signals.data.SignalsData;
-import org.matsim.contrib.signals.data.signalgroups.v20.SignalControlData;
-import org.matsim.contrib.signals.data.signalgroups.v20.SignalGroupsData;
-import org.matsim.contrib.signals.data.signalsystems.v20.SignalSystemsData;
-import org.matsim.contrib.signals.utils.SignalUtils;
-import org.matsim.contrib.signals.SignalSystemsConfigGroup;
-import org.matsim.contrib.signals.data.SignalsScenarioWriter;
-import org.matsim.core.config.ConfigWriter;
 
 
 /**
@@ -31,10 +30,6 @@ public class RunPNetworkGenerator {
 		 * The input file name.
 		 */
 		String osm = "./input/map.osm";
-		
-		SignalSystemsData systems;
-		SignalGroupsData groups;
-		SignalControlData control;
 		
 		/*
 		 * The coordinate system to use. OpenStreetMap uses WGS84, but for MATSim, we need a projection where distances
@@ -52,24 +47,21 @@ public class RunPNetworkGenerator {
 		 * 
 		 */
 		Config config = ConfigUtils.createConfig();
-		Scenario scenario = ScenarioUtils.createScenario(config);
-		
-		/*
-		 * Pick the Network from the Scenario for convenience.
-		 */
-		
 		SignalSystemsConfigGroup signalSystemsConfigGroup = 
 				ConfigUtils.addOrGetModule(config, SignalSystemsConfigGroup.GROUPNAME, SignalSystemsConfigGroup.class);
 		signalSystemsConfigGroup.setUseSignalSystems(true);
 		
+		Scenario scenario = ScenarioUtils.createScenario(config);		
+		scenario.addScenarioElement(SignalsData.ELEMENT_NAME, new SignalsScenarioLoader(signalSystemsConfigGroup).loadSignalsData());
+		
+		SignalsData signalsData = (SignalsData) scenario.getScenarioElement(SignalsData.ELEMENT_NAME);
+		
+		/*
+		 * Pick the Network from the Scenario for convenience.
+		 */
 		Network network = scenario.getNetwork();
-		//problem: copy from signalstutorial / CreateSignalInputExample : wrong matsim version?
-		SignalsData signalsData = SignalUtils.createSignalsData(signalSystemsConfigGroup);
-		scenario.addScenarioElement(SignalsData.ELEMENT_NAME, signalsData);
 				
-		//scenario.addScenarioElement(SignalsData.ELEMENT_NAME, new SignalsDataLoader(config).loadSignalsData());
-				
-		OsmNetworkWithLanesAndSignalsReader reader = new OsmNetworkWithLanesAndSignalsReader(network,ct,signalsdata);
+		OsmNetworkWithLanesAndSignalsReader reader = new OsmNetworkWithLanesAndSignalsReader(network,ct,signalsData);
 		reader.parse(osm);
 		
 		/*
