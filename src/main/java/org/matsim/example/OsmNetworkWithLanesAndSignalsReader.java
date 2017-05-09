@@ -238,9 +238,10 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		log.info("= conversion statistics: ==========================");
 		log.info("osm: # nodes read:       " + parser.nodeCounter.getCounter());
 		log.info("osm: # ways read:        " + parser.wayCounter.getCounter());
+		log.info("osm: # signals read:     " + parser.signalsCounter.getCounter());
 		log.info("MATSim: # nodes created: " + this.network.getNodes().size());
 		log.info("MATSim: # links created: " + this.network.getLinks().size());
-
+		//TODO: expand conversion statistics for signals and lanes
 		if (this.unknownHighways.size() > 0) {
 			log.info("The following highway-types had no defaults set and were thus NOT converted:");
 			for (String highwayType : this.unknownHighways) {
@@ -469,23 +470,26 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 		// all systems are created
 		
-		this.id = 1;
-		List<Id<SignalSystem>> ids = new LinkedList<Id<SignalSystem>>();
-		for (int i = 1, n = nodes.size(); i < n; i++) {
-			OsmNode checkedNode = this.nodes.get(i);
-			if(checkedNode.used == true && checkedNode.signalized == true){
-				createSignalGroupsForSystem(this.network, this.systems, checkedNode.id, ids);
-			}
-		}
-		/*
-		 * du brauchst 'ids' gar nicht:
-		 * for (SignalSystemData signalSystem : this.systems.getSignalSystemData().values()){
-		 * 	SignalUtils.createAndAddSignalGroups4Signals(this.groups, signalSystem);
-		 * }
-		 */
-		/* TODO fuer spaeter: Lane-Infos nutzen um Signals zu gruppieren, Nils&Theresa Mar'17 */
+		/*this.id = 1;
+		 *List<Id<SignalSystem>> ids = new LinkedList<Id<SignalSystem>>();
+		 *for (int i = 1, n = nodes.size(); i < n; i++) {
+		 *	//added condition to prevent NullPointerException -- TODO: check why
+		 *	if(this.nodes.get(i) != null){
+		 *		OsmNode checkedNode = this.nodes.get(i);
+		 *		if(checkedNode.used == true && checkedNode.signalized == true){
+		 *			createSignalGroupsForSystem(this.network, this.systems, checkedNode.id, ids);
+		 *		}	
+		 *	}
+		 *}
+		*/
 		
-		createSignalControl(this.control, ids);
+		for (SignalSystemData signalSystem : this.systems.getSignalSystemData().values()){
+		 	SignalUtils.createAndAddSignalGroups4Signals(this.groups, signalSystem);
+		}
+	
+		// TODO fuer spaeter: Lane-Infos nutzen um Signals zu gruppieren, Nils&Theresa Mar'17 */
+		
+		//createSignalControl(this.control, ids);
 
 		// free up memory
 		this.nodes.clear();
@@ -701,6 +705,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		public int ways = 0;
 		public final Coord coord;
 		public boolean signalized = false;
+		//TODO: including traffic_signals:direction to prevent wrong signals in MATSim
 
 		public OsmNode(final long id, final Coord coord) {
 			this.id = id;
@@ -746,6 +751,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		private final Map<Long, OsmWay> ways;
 		/*package*/ final Counter nodeCounter = new Counter("node ");
 		/*package*/ final Counter wayCounter = new Counter("way ");
+		//added counter for signals
+		/*package*/ final Counter signalsCounter = new Counter("traffic_signals");
 		private final CoordinateTransformation transform;
 		private boolean loadNodes = true;
 		private boolean loadWays = true;
@@ -814,6 +821,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					String value = StringCache.get(atts.getValue("v"));
 					if ("highway".equals(key) && "traffic_signals".equals(value)){
 						this.currentNode.signalized = true;
+						this.signalsCounter.incCounter();
 					}					
 				}
 			}
