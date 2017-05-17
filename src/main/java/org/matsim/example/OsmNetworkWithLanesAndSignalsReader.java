@@ -68,6 +68,8 @@ import org.matsim.core.utils.io.UncheckedIOException;
 import org.matsim.core.utils.misc.Counter;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
+import org.matsim.lanes.data.v11.*;
+import org.matsim.lanes.data.v20.Lane;
 
 /**
  * Reads in an OSM-File, exported from <a href="http://openstreetmap.org/" target="_blank">OpenStreetMap</a>,
@@ -387,7 +389,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		if (!this.keepPaths) {
 			// marked nodes as unused where only one way leads through
 			for (OsmNode node : this.nodes.values()) {
-				if (node.ways == 1) {
+				if (node.ways == 1 && !node.signalized) {
 					node.used = false;
 				}
 			}
@@ -472,6 +474,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			}
 		}
 		// all systems are created
+		
+		
 		
 		/*this.id = 1;
 		 *List<Id<SignalSystem>> ids = new LinkedList<Id<SignalSystem>>();
@@ -696,6 +700,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		// only create link, if both nodes were found, node could be null, since nodes outside a layer were dropped
 		Id<Node> fromId = Id.create(fromNode.id, Node.class);
 		Id<Node> toId = Id.create(toNode.id, Node.class);
+		double laneLength = 1;
 		if(network.getNodes().get(fromId) != null && network.getNodes().get(toId) != null){
 			String origId = Long.toString(way.id);
 
@@ -709,7 +714,16 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					((LinkImpl) l).setOrigId(origId);
 					((LinkImpl) l).setType( highway );
 				}
-				network.addLink(l);
+				if(nofLanes > 1){
+					LaneDefinitions11 lanes = new LaneDefinitions11Impl();
+					LaneDefinitionsFactory11 factory = lanes.getFactory();
+					LanesToLinkAssignment11 lanesForLink = factory
+							.createLanesToLinkAssignment(Id.create(l.getId(), Link.class));
+					lanes.addLanesToLinkAssignment(lanesForLink);
+					for(int i= 1; i <= nofLanes; i++){
+						LanesUtils11.createAndAddLane11(lanesForLink, factory, Id.create("Lane"+this.id+"."+i, Lane.class), laneLength, 1, l.getId());
+					}
+				}
 				//checks if (to)Node is signalized and if signal applies for the direction
 				if (toNode.signalized && toNode.signalDir != 2){
 					Id<SignalSystem> systemId = Id.create("System"+toNode.id, SignalSystem.class);
@@ -722,6 +736,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
 					/* TODO spaeter fuer Lanes hier pro Lane ein Signal erstellen, Nils&Theresa Mar'17 */
 				}
+				network.addLink(l);
 				this.id++;
 			}
 			if (!oneway) {
