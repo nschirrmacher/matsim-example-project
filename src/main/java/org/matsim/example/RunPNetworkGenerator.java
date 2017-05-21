@@ -17,6 +17,8 @@ import org.matsim.core.network.algorithms.NetworkCleaner;
 import org.matsim.core.scenario.ScenarioUtils;
 import org.matsim.core.utils.geometry.CoordinateTransformation;
 import org.matsim.core.utils.geometry.transformations.TransformationFactory;
+import org.matsim.lanes.data.v20.LaneDefinitionsWriter20;
+import org.matsim.lanes.data.v20.Lanes;
 
 
 /**
@@ -55,13 +57,15 @@ public class RunPNetworkGenerator {
 		scenario.addScenarioElement(SignalsData.ELEMENT_NAME, new SignalsScenarioLoader(signalSystemsConfigGroup).loadSignalsData());
 		
 		SignalsData signalsData = (SignalsData) scenario.getScenarioElement(SignalsData.ELEMENT_NAME);
+		//added Lanes
+		Lanes lanes = scenario.getLanes();
 		
 		/*
 		 * Pick the Network from the Scenario for convenience.
 		 */
 		Network network = scenario.getNetwork();
 				
-		OsmNetworkWithLanesAndSignalsReader reader = new OsmNetworkWithLanesAndSignalsReader(network,ct,signalsData);
+		OsmNetworkWithLanesAndSignalsReader reader = new OsmNetworkWithLanesAndSignalsReader(network,ct,signalsData,lanes);
 		reader.parse(osm);
 		
 		/*
@@ -77,6 +81,8 @@ public class RunPNetworkGenerator {
 		
 		new NetworkWriter(network).write(outputDir + "network.xml");
 		
+		config.network().setLaneDefinitionsFile(outputDir + "lane_definitions_v2.0.xml");
+		
 		signalSystemsConfigGroup.setSignalSystemFile(outputDir + "signal_systems.xml");
 		signalSystemsConfigGroup.setSignalGroupsFile(outputDir + "signal_groups.xml");
 		signalSystemsConfigGroup.setSignalControlFile(outputDir + "signal_control.xml");
@@ -90,6 +96,9 @@ public class RunPNetworkGenerator {
 		signalsWriter.setSignalGroupsOutputFilename(signalSystemsConfigGroup.getSignalGroupsFile());
 		signalsWriter.setSignalControlOutputFilename(signalSystemsConfigGroup.getSignalControlFile());
 		signalsWriter.writeSignalsData(scenario);
+		
+		LaneDefinitionsWriter20 writerDelegate = new LaneDefinitionsWriter20(scenario.getLanes());
+		writerDelegate.write(config.network().getLaneDefinitionsFile());
 	}
 
 }

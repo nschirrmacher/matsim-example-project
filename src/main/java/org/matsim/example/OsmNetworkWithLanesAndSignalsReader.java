@@ -70,6 +70,7 @@ import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.matsim.lanes.data.v11.*;
 import org.matsim.lanes.data.v20.Lane;
+import org.matsim.lanes.data.v20.*;
 
 /**
  * Reads in an OSM-File, exported from <a href="http://openstreetmap.org/" target="_blank">OpenStreetMap</a>,
@@ -137,6 +138,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	private final SignalGroupsData groups;
 	private final SignalControlData control;
 	
+	private final Lanes lanes;
+	
 	/*package*/ final List<OsmFilter> hierarchyLayers = new ArrayList<OsmFilter>();
 
 	/**
@@ -145,8 +148,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	 * @param network An empty network where the converted OSM data will be stored.
 	 * @param transformation A coordinate transformation to be used. OSM-data comes as WGS84, which is often not optimal for MATSim.
 	 */
-	public OsmNetworkWithLanesAndSignalsReader(final Network network, final CoordinateTransformation transformation, final SignalsData signalsData) {
-		this(network, transformation, true, signalsData);
+	public OsmNetworkWithLanesAndSignalsReader(final Network network, final CoordinateTransformation transformation, final SignalsData signalsData, final Lanes lanes) {
+		this(network, transformation, true, signalsData, lanes);
 	}
 
 	/**
@@ -156,12 +159,14 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	 * @param transformation A coordinate transformation to be used. OSM-data comes as WGS84, which is often not optimal for MATSim.
 	 * @param useHighwayDefaults Highway defaults are set to standard values, if true.
 	 */
-	public OsmNetworkWithLanesAndSignalsReader(final Network network, final CoordinateTransformation transformation, final boolean useHighwayDefaults, final SignalsData signalsData) {
+	public OsmNetworkWithLanesAndSignalsReader(final Network network, final CoordinateTransformation transformation, final boolean useHighwayDefaults, final SignalsData signalsData, final Lanes lanes) {
 		this.network = network;
 		this.transform = transformation;
 		this.systems = signalsData.getSignalSystemsData();
 		this.groups = signalsData.getSignalGroupsData();
 		this.control = signalsData.getSignalControlData();
+		//added Lanes variable
+		this.lanes = lanes;
 
 		if (useHighwayDefaults) {
 			log.info("Falling back to default values.");
@@ -385,6 +390,35 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				}
 			}
 		}
+		
+		//cleaning unreadable ways
+		for(OsmWay way : this.ways.values()){
+			String highway = way.tags.get(TAG_HIGHWAY);
+			if(highway == null){
+				this.ways.remove(way);
+				log.warn("Way #"+ way.id + "has been removed for missing highway tag!!!");
+			}
+		}
+		
+		//pushing signals to junctions
+		//TODO: pushing in both directions; find a way that pushing does not go to far
+		for(OsmWay way : this.ways.values()){
+			OsmNode fromNode = this.nodes.get(way.nodes.get(0));
+			OsmNode lastNode = this.nodes.get(way.nodes.get(way.nodes.size()-1));
+			for (int i = 1, n = way.nodes.size(); i < n; i++){
+				OsmNode toNode = this.nodes.get(way.nodes.get(i));
+				if(fromNode.signalized && fromNode.ways == 1){
+					toNode.signalized = true;
+					fromNode.signalized = false;
+					if(fromNode.signalDir != 0 && toNode != lastNode){
+						toNode.signalDir = fromNode.signalDir;
+					}
+				}
+				fromNode = toNode;
+			}
+		}
+		
+		
 
 		if (!this.keepPaths) {
 			// marked nodes as unused where only one way leads through
@@ -433,7 +467,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				this.network.addNode(nn);
 			}
 		}
-
+		
 		// create the links
 		this.id = 1;
 		for (OsmWay way : this.ways.values()) {
@@ -473,6 +507,13 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				}
 			}
 		}
+		
+		this.id=1;
+		for (Link link : this.network.getLinks().values()) {
+			//TODO: fill out
+		}
+		
+		
 		// all systems are created
 		
 		
@@ -700,7 +741,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		// only create link, if both nodes were found, node could be null, since nodes outside a layer were dropped
 		Id<Node> fromId = Id.create(fromNode.id, Node.class);
 		Id<Node> toId = Id.create(toNode.id, Node.class);
-		double laneLength = 1;
+		//double laneLength = 1;
 		if(network.getNodes().get(fromId) != null && network.getNodes().get(toId) != null){
 			String origId = Long.toString(way.id);
 
@@ -715,14 +756,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					((LinkImpl) l).setType( highway );
 				}
 				if(nofLanes > 1){
-					LaneDefinitions11 lanes = new LaneDefinitions11Impl();
-					LaneDefinitionsFactory11 factory = lanes.getFactory();
-					LanesToLinkAssignment11 lanesForLink = factory
-							.createLanesToLinkAssignment(Id.create(l.getId(), Link.class));
-					lanes.addLanesToLinkAssignment(lanesForLink);
-					for(int i= 1; i <= nofLanes; i++){
-						LanesUtils11.createAndAddLane11(lanesForLink, factory, Id.create("Lane"+this.id+"."+i, Lane.class), laneLength, 1, l.getId());
-					}
+					createLanes(l,lanes, nofLanes);
 				}
 				//checks if (to)Node is signalized and if signal applies for the direction
 				if (toNode.signalized && toNode.signalDir != 2){
@@ -749,7 +783,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					((LinkImpl) l).setOrigId(origId);
 					((LinkImpl) l).setType( highway );
 				}
-				network.addLink(l);
+				if(nofLanes > 1){
+					createLanes(l,lanes, nofLanes);
+				}
 				//checks if (to)Node is signalized and if signal applies for the direction
 				if (fromNode.signalized && fromNode.signalDir != 1 ){
 					Id<SignalSystem> systemId = Id.create("System"+fromNode.id, SignalSystem.class);
@@ -762,12 +798,23 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
 					/* TODO spaeter fuer Lanes hier pro Lane ein Signal erstellen, Nils&Theresa Mar'17 */
 				}
+				network.addLink(l);
 				this.id++;
 			}
 
 		}
 	}
 
+	private void createLanes(final Link l, final Lanes lanes, final double nofLanes){
+		LaneDefinitionsFactory20 factory = lanes.getFactory();
+		LanesToLinkAssignment20 lanesForLink = factory
+				.createLanesToLinkAssignment(Id.create(l.getId(), Link.class));
+		lanes.addLanesToLinkAssignment(lanesForLink);
+		for(int i = 1; i <= nofLanes; i++){
+			lanes.getFactory().createLane(Id.create("Lane"+id, Lane.class));
+		}
+	}
+	
 	private static class OsmFilter {
 		private final Coord coordNW;
 		private final Coord coordSE;
