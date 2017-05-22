@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -34,9 +33,7 @@ import java.util.Set;
 import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.matsim.contrib.signals.SignalSystemsConfigGroup;
 import org.matsim.contrib.signals.data.SignalsData;
-import org.matsim.contrib.signals.data.SignalsScenarioWriter;
 import org.matsim.contrib.signals.data.signalgroups.v20.SignalControlData;
 import org.matsim.contrib.signals.data.signalgroups.v20.SignalData;
 import org.matsim.contrib.signals.data.signalgroups.v20.SignalGroupSettingsData;
@@ -67,8 +64,6 @@ import org.matsim.core.utils.io.MatsimXmlParser;
 import org.matsim.core.utils.io.UncheckedIOException;
 import org.matsim.core.utils.misc.Counter;
 import org.xml.sax.Attributes;
-import org.xml.sax.InputSource;
-import org.matsim.lanes.data.v11.*;
 import org.matsim.lanes.data.v20.Lane;
 import org.matsim.lanes.data.v20.*;
 
@@ -166,6 +161,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		this.groups = signalsData.getSignalGroupsData();
 		this.control = signalsData.getSignalControlData();
 		//added Lanes variable
+		//********************
 		this.lanes = lanes;
 
 		if (useHighwayDefaults) {
@@ -251,7 +247,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		log.info("MATSim: # nodes created:   " + this.network.getNodes().size());
 		log.info("MATSim: # links created:   " + this.network.getLinks().size());
 		log.info("MATSim: # signals created: " + this.systems.getSignalSystemData().size());
-		//TODO: expand conversion statistics for signals and lanes
+		//TODO: expand conversion statistics for signals and lanes //added log for signals
+		//                                                           *********************
 		if (this.unknownHighways.size() > 0) {
 			log.info("The following highway-types had no defaults set and were thus NOT converted:");
 			for (String highwayType : this.unknownHighways) {
@@ -392,6 +389,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 		
 		//cleaning unreadable ways
+		//************************
 		for(OsmWay way : this.ways.values()){
 			String highway = way.tags.get(TAG_HIGHWAY);
 			if(highway == null){
@@ -401,8 +399,32 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 		
 		//pushing signals to junctions
-		//TODO: pushing in both directions; find a way that pushing does not go to far
+		//****************************
 		for(OsmWay way : this.ways.values()){
+			String oneway = way.tags.get(TAG_ONEWAY);
+			OsmNode signalNode;
+			OsmNode junctionNode;
+			if(way.nodes.size()>2){
+				if(oneway != "-1"){
+					signalNode = this.nodes.get(way.nodes.get(way.nodes.size()-2));
+					junctionNode = this.nodes.get(way.nodes.get(way.nodes.size()-1));
+					if(signalNode.signalized && signalNode.signalDir != 2){
+						junctionNode.signalized = true;
+						signalNode.signalized = false;
+					}
+				}else if(oneway != "yes" && oneway != "true" && oneway != "1"){
+					signalNode = this.nodes.get(way.nodes.get(1));
+					junctionNode = this.nodes.get(way.nodes.get(0));
+					if(signalNode.signalized && signalNode.signalDir != 1){
+						junctionNode.signalized = true;
+						signalNode.signalized = false;
+					}
+				}	
+			}
+		}
+		
+		
+		/*for(OsmWay way : this.ways.values()){
 			OsmNode fromNode = this.nodes.get(way.nodes.get(0));
 			OsmNode lastNode = this.nodes.get(way.nodes.get(way.nodes.size()-1));
 			for (int i = 1, n = way.nodes.size(); i < n; i++){
@@ -417,7 +439,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				fromNode = toNode;
 			}
 		}
-		
+		*/
 		
 
 		if (!this.keepPaths) {
@@ -530,7 +552,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		 *	}
 		 *}
 		*/
-		
+		//added settings
+		//**************
 		for (SignalSystemData signalSystem : this.systems.getSignalSystemData().values()){
 			int cycle = 120;
 			
@@ -610,6 +633,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		boolean oneway = defaults.oneway;
 		boolean onewayReverse = false;
 		//TODO: maybe add to defaults
+		//***************************
 
 		// check if there are tags that overwrite defaults
 		// - check tag "junction"
@@ -694,6 +718,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			nofLanesForw = totalNofLanesBack;
 		}
 		
+		//added checker for turnlanes - using Stack to pop later--Array easier? - tempDir for alignment
+		//*********************************************************************************************
 		String turnLanes = way.tags.get(TAG_TURNLANES);
 		if(turnLanes != null){
 			String[] allTheLanes = turnLanes.split("|");
@@ -759,7 +785,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					createLanes(l,lanes, nofLanes);
 				}
 				//checks if (to)Node is signalized and if signal applies for the direction
-				if (toNode.signalized && toNode.signalDir != 2){
+				if (toNode.signalized && toNode.signalDir != 2 && !signalTooClose(toNode, fromNode, l)){
 					Id<SignalSystem> systemId = Id.create("System"+toNode.id, SignalSystem.class);
 					if (!this.systems.getSignalSystemData().containsKey(systemId)){
 						SignalSystemData system = this.systems.getFactory().createSignalSystemData(systemId);
@@ -787,7 +813,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					createLanes(l,lanes, nofLanes);
 				}
 				//checks if (to)Node is signalized and if signal applies for the direction
-				if (fromNode.signalized && fromNode.signalDir != 1 ){
+				if (fromNode.signalized && fromNode.signalDir != 1 && !signalTooClose(toNode, fromNode, l)){
 					Id<SignalSystem> systemId = Id.create("System"+fromNode.id, SignalSystem.class);
 					if (!this.systems.getSignalSystemData().containsKey(systemId)){
 						SignalSystemData system = this.systems.getFactory().createSignalSystemData(systemId);
@@ -804,7 +830,10 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 
 		}
 	}
-
+	
+	//trying to create lanes while creating a Link - toLinks can only be set after all Links are created
+	//idea: creating empty lanes with links -> filling after all links are created - useful?************
+	//**************************************************************************************************
 	private void createLanes(final Link l, final Lanes lanes, final double nofLanes){
 		LaneDefinitionsFactory20 factory = lanes.getFactory();
 		LanesToLinkAssignment20 lanesForLink = factory
@@ -812,6 +841,20 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		lanes.addLanesToLinkAssignment(lanesForLink);
 		for(int i = 1; i <= nofLanes; i++){
 			lanes.getFactory().createLane(Id.create("Lane"+id, Lane.class));
+		}
+	}
+	
+	//added checker for too close signals to prevent the creation of two signals in one junction
+	//******************************************************************************************
+	private boolean signalTooClose(OsmNode fromNode, OsmNode toNode, Link l){
+		if(toNode.signalized && fromNode.signalized){
+			if(l.getLength() < 25){
+				return true;
+			}else{
+				return false;
+			}
+		}else{
+			return false;
 		}
 	}
 	
@@ -843,8 +886,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		public final Coord coord;
 		public boolean signalized = false;
 		public int signalDir= 0;
-		//TODO: including traffic_signals:direction to prevent wrong signals in MATSim
-
+		//including traffic_signals:direction to prevent wrong signals in MATSim
+		//**********************************************************************
+		
 		public OsmNode(final long id, final Coord coord) {
 			this.id = id;
 			this.coord = coord;
@@ -890,6 +934,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		/*package*/ final Counter nodeCounter = new Counter("node ");
 		/*package*/ final Counter wayCounter = new Counter("way ");
 		//added counter for signals
+		//*************************
 		/*package*/ final Counter signalsCounter = new Counter("traffic_signals ");
 		private final CoordinateTransformation transform;
 		private boolean loadNodes = true;
@@ -962,6 +1007,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						this.signalsCounter.incCounter();
 					}
 					//checks if traffic signals are just applying for one direction, if so changes signalDir variable
+					//***********************************************************************************************
 					if ("traffic_signals:direction".equals(key)){
 						if ("forward".equals(value)){
 							this.currentNode.signalDir = 1;
