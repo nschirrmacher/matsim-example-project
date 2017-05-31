@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE config SYSTEM "http://www.matsim.org/files/dtd/config_v1.dtd"
+  [
+   <!ENTITY INPUTBASE    "">
+     ]
+>
+
+<config>
+	<module name="global">
+		<param name="coordinateSystem" value="WGS84_UTM33N" />
+	</module>
+
+	<module name="network" >
+		<param name="inputNetworkFile" value="&INPUTBASE;network.xml" />
+		<param name="laneDefinitionsFile" value="&INPUTBASE;lane_definitions_v2.0.xml" />
+	</module>
+
+	<module name="qsim">
+		<param name="nodeOffset" value="0.0" />
+		<!-- Set this parameter to true if lanes should be used, false if not. -->
+		<param name="useLanes" value="true" />
+		
+	</module>	
+
+	<module name="signalsystems" >
+		<!-- Set this parameter to true if signal systems should be used, false if not. -->
+		<param name="useSignalsystems" value="true" />
+		<!-- <param name="ambertimes" value="&INPUTBASE;amber_times.xml.gz" /> -->
+		<param name="signalcontrol" value="&INPUTBASE;signal_control.xml" />
+		<param name="signalgroups" value="&INPUTBASE;signal_groups.xml" />
+		<param name="signalsystems" value="&INPUTBASE;signal_systems.xml" />
+	</module>
+
+
+</config>

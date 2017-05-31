@@ -247,8 +247,6 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		log.info("MATSim: # nodes created:   " + this.network.getNodes().size());
 		log.info("MATSim: # links created:   " + this.network.getLinks().size());
 		log.info("MATSim: # signals created: " + this.systems.getSignalSystemData().size());
-		//TODO: expand conversion statistics for signals and lanes //added log for signals
-		//                                                           *********************
 		if (this.unknownHighways.size() > 0) {
 			log.info("The following highway-types had no defaults set and were thus NOT converted:");
 			for (String highwayType : this.unknownHighways) {
@@ -423,24 +421,6 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			}
 		}
 		
-		
-		/*for(OsmWay way : this.ways.values()){
-			OsmNode fromNode = this.nodes.get(way.nodes.get(0));
-			OsmNode lastNode = this.nodes.get(way.nodes.get(way.nodes.size()-1));
-			for (int i = 1, n = way.nodes.size(); i < n; i++){
-				OsmNode toNode = this.nodes.get(way.nodes.get(i));
-				if(fromNode.signalized && fromNode.ways == 1){
-					toNode.signalized = true;
-					fromNode.signalized = false;
-					if(fromNode.signalDir != 0 && toNode != lastNode){
-						toNode.signalDir = fromNode.signalDir;
-					}
-				}
-				fromNode = toNode;
-			}
-		}
-		*/
-		
 
 		if (!this.keepPaths) {
 			// marked nodes as unused where only one way leads through
@@ -532,7 +512,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		
 		this.id=1;
 		for (Link link : this.network.getLinks().values()) {
-			//TODO: fill out
+			//TODO: fill lanes (capacity, toLanes/Links). a signal for each lane.
 		}
 		
 		
@@ -558,6 +538,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			int cycle = 120;
 			
 		 	SignalUtils.createAndAddSignalGroups4Signals(this.groups, signalSystem);
+		 	// TODO fuer spaeter: Lane-Infos nutzen um Signals zu gruppieren, Nils&Theresa Mar'17 */
 		 	
 			SignalSystemControllerData controller = this.control.getFactory().createSignalSystemControllerData(signalSystem.getId());
 			this.control.addSignalSystemControllerData(controller);
@@ -573,41 +554,13 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			settings1.setOnset(0);
 			settings1.setDropping(55);
 		}
-	
-		// TODO fuer spaeter: Lane-Infos nutzen um Signals zu gruppieren, Nils&Theresa Mar'17 */
-		
-		//createSignalControl(this.control, ids);
 
 		// free up memory
 		this.nodes.clear();
 		this.ways.clear();
 	}
 	
-	/*private void createSignalGroupsForSystem(final Network network, final SignalSystemsData systems, final long id, List<Id<SignalSystem>> ids){
-		SignalSystemData system = this.systems.getSignalSystemData().get("System"+this.id);
-		SignalUtils.createAndAddSignalGroups4Signals(this.groups, system);
-		ids.add(Id.create(system.getId(), SignalSystem.class));	
-	}
 	
-	private void createSignalControl(SignalControlData control, List<Id<SignalSystem>> ids) {
-		int cycle = 120;
-		// TODO auch hier 'for (Id<SignalSystem> signalSystemId : this.systems.getSignalSystemData().keySet()) ...'
-		// dann brauchst du Methodenparameter auch nicht mehr
-		 
-		for (Id<SignalSystem> id : ids){
-			SignalSystemControllerData controller = this.control.getFactory().createSignalSystemControllerData(id);
-			this.control.addSignalSystemControllerData(controller);
-			controller.setControllerIdentifier(DefaultPlanbasedSignalSystemController.IDENTIFIER);
-			SignalPlanData plan1 = this.control.getFactory().createSignalPlanData(Id.create("1", SignalPlan.class));
-			controller.addSignalPlanData(plan1);
-			plan1.setStartTime(0.0);
-			plan1.setEndTime(0.0);
-			plan1.setCycleTime(cycle);
-			plan1.setOffset(0);
-			// TODO signalGroupSettings fuellen. erstmal irgendwie, spaeter ueberlegen welche zusammen geschaltet werden koennen
-		}
-	}
-	*/
 	private void createLink(final Network network, final OsmWay way, final OsmNode fromNode, final OsmNode toNode, 
 			final double length) {
 		String highway = way.tags.get(TAG_HIGHWAY);
@@ -840,7 +793,13 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				.createLanesToLinkAssignment(Id.create(l.getId(), Link.class));
 		lanes.addLanesToLinkAssignment(lanesForLink);
 		for(int i = 1; i <= nofLanes; i++){
-			lanes.getFactory().createLane(Id.create("Lane"+id, Lane.class));
+			Lane lane = lanes.getFactory().createLane(Id.create("Lane"+id, Lane.class));
+//			lane.setStartsAtMeterFromLinkEnd(meter); // hier setzen
+//			lane.setNumberOfRepresentedLanes(number); // hier setzen
+//			lane.setAlignment(alignment); // wie du moechtest
+//			lane.setCapacityVehiclesPerHour(capacity); // erst auf basis des kreuzungslayouts
+//			lane.addToLinkId(Id.createLinkId(0)); usw. spaeter fuellen
+			lanesForLink.addLane(lane);
 		}
 	}
 	
