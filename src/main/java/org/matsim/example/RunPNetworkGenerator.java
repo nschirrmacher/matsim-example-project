@@ -28,7 +28,7 @@ public class RunPNetworkGenerator {
 		/*
 		 * The input file name.
 		 */
-		String osm = "./input/map.osm";
+		String osm = "./input/map_170521.osm";
 		
 		/*
 		 * The coordinate system to use. OpenStreetMap uses WGS84, but for MATSim, we need a projection where distances

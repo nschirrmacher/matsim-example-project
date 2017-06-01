@@ -793,13 +793,13 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				.createLanesToLinkAssignment(Id.create(l.getId(), Link.class));
 		lanes.addLanesToLinkAssignment(lanesForLink);
 		for(int i = 1; i <= nofLanes; i++){
-			Lane lane = lanes.getFactory().createLane(Id.create("Lane"+id, Lane.class));
+			//Lane lane = lanes.getFactory().createLane(Id.create("Lane"+id, Lane.class));
 //			lane.setStartsAtMeterFromLinkEnd(meter); // hier setzen
 //			lane.setNumberOfRepresentedLanes(number); // hier setzen
 //			lane.setAlignment(alignment); // wie du moechtest
 //			lane.setCapacityVehiclesPerHour(capacity); // erst auf basis des kreuzungslayouts
 //			lane.addToLinkId(Id.createLinkId(0)); usw. spaeter fuellen
-			lanesForLink.addLane(lane);
+//			lanesForLink.addLane(lane);
 		}
 	}
 	
@@ -844,9 +844,14 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		public int ways = 0;
 		public final Coord coord;
 		public boolean signalized = false;
-		public int signalDir= 0;
+		public int signalDir = 0;
 		//including traffic_signals:direction to prevent wrong signals in MATSim
 		//**********************************************************************
+		public boolean restriction;
+		public OsmWay fromRestricted;
+		public OsmWay toRestricted;
+		public int restrictionValue = 0;
+
 		
 		public OsmNode(final long id, final Coord coord) {
 			this.id = id;
@@ -862,6 +867,24 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 
 		public OsmWay(final long id) {
 			this.id = id;
+		}
+	}
+	
+	private static class OsmRelation {
+		public final long id;
+		public OsmNode resNode;
+		public OsmWay fromRestricted;
+		public OsmWay toRestricted;
+		public int restrictionValue = 0;
+		
+		public OsmRelation(final long id){
+			this.id = id;
+		}
+		
+		public void putRelationToNode(){
+			resNode.fromRestricted = this.fromRestricted;
+			resNode.toRestricted = this.toRestricted;
+			resNode.restrictionValue = this.restrictionValue;
 		}
 	}
 
@@ -888,6 +911,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 
 		private OsmWay currentWay = null;
 		private OsmNode currentNode = null;
+		private OsmRelation currentRelation = null;
 		private final Map<Long, OsmNode> nodes;
 		private final Map<Long, OsmWay> ways;
 		/*package*/ final Counter nodeCounter = new Counter("node ");
@@ -948,6 +972,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				if (this.currentWay != null) {
 					this.currentWay.nodes.add(Long.parseLong(atts.getValue("ref")));
 				}
+			} else if ("relation".equals(name)){
+				this.currentRelation = new OsmRelation(Long.parseLong(atts.getValue("id"))); 
 			} else if ("tag".equals(name)) {
 				if (this.currentWay != null) {
 					String key = StringCache.get(atts.getValue("k"));
@@ -974,6 +1000,35 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						if ("backward".equals(value)){
 							this.currentNode.signalDir = 2;
 						}									
+					}
+				}	
+				if (this.currentRelation != null) {	
+					String key = StringCache.get(atts.getValue("k"));
+					String value = StringCache.get(atts.getValue("v"));
+					if ("restriction".equals(key)){
+						if ("no".equals(value.substring(0,2))){
+							this.currentRelation.restrictionValue = -1;
+							log.info("Relation " + currentRelation.id + " created! It Works :)");
+						}else if ("only".equals(value.substring(0,4))){
+							this.currentRelation.restrictionValue = 1;
+							log.info("Relation " + currentRelation.id + " created! It Works :)");
+						}else {
+							log.info("Relation not created! Well, shit :(");
+						}
+					}
+				}
+			} else if ("member".equals(name)){
+				if (this.currentRelation != null){
+					String type = StringCache.get(atts.getValue("type"));
+					String role = StringCache.get(atts.getValue("role"));
+					if ("node".equals(type)){
+						this.currentRelation.resNode = this.nodes.get(Long.parseLong(atts.getValue("ref")));
+					} else if ("way".equals(type)){
+						if ("from".equals(role)){
+							this.currentRelation.fromRestricted = this.ways.get(Long.parseLong(atts.getValue("ref")));
+						} else if ("from".equals(role)){
+							this.currentRelation.toRestricted = this.ways.get(Long.parseLong(atts.getValue("ref")));
+						}
 					}
 				}
 			}
@@ -1031,7 +1086,14 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				this.nodes.put(this.currentNode.id, this.currentNode);
 				this.nodeCounter.incCounter();
 				this.currentNode = null;
-			}	
+			}
+			
+			if ("relation".equals(name)){
+				if(this.currentRelation.restrictionValue != 0){
+					this.currentRelation.putRelationToNode();
+				}
+			this.currentRelation = null;	
+			}
 		}
 
 	}
