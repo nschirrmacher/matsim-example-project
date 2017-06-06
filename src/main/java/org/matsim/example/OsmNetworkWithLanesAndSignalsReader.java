@@ -33,6 +33,8 @@ import java.util.Set;
 import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
 
+import javax.vecmath.Vector2d;
+
 import org.matsim.contrib.signals.data.SignalsData;
 import org.matsim.contrib.signals.data.signalgroups.v20.SignalControlData;
 import org.matsim.contrib.signals.data.signalgroups.v20.SignalData;
@@ -107,13 +109,15 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
     private final static String TAG_ONEWAY = "oneway";
     private final static String TAG_ACCESS = "access";
     private final static String TAG_TURNLANES = "turn:lanes";
-    private final static String TAG_LANESFORWARD = "lanes:forward";
-    private final static String TAG_LANESBACKWARD = "lanes:backward";
+    private final static String TAG_TURNLANESFORW = "turn:lanes:forward";
+    private final static String TAG_TURNLANESBACK = "turn:lanes:backward";
+    private final static String TAG_LANESFORW = "lanes:forward";
+    private final static String TAG_LANESBACKW = "lanes:backward";
     private final static String TAG_RESTRICTION = "restriction";
     
     private final static String TAG_SIGNALS = "highway";
     
-	private final static String[] ALL_TAGS = new String[] {TAG_LANES, TAG_HIGHWAY, TAG_MAXSPEED, TAG_JUNCTION, TAG_ONEWAY, TAG_ACCESS, TAG_TURNLANES, TAG_LANESFORWARD, TAG_LANESBACKWARD, TAG_RESTRICTION, TAG_SIGNALS};
+	private final static String[] ALL_TAGS = new String[] {TAG_LANES, TAG_HIGHWAY, TAG_MAXSPEED, TAG_JUNCTION, TAG_ONEWAY, TAG_ACCESS, TAG_TURNLANES, TAG_TURNLANESFORW, TAG_TURNLANESBACK, TAG_LANESFORW, TAG_LANESBACKW, TAG_RESTRICTION, TAG_SIGNALS};
 
 	private final Map<Long, OsmNode> nodes = new HashMap<Long, OsmNode>();
 	private final Map<Long, OsmWay> ways = new HashMap<Long, OsmWay>();
@@ -160,8 +164,6 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		this.systems = signalsData.getSignalSystemsData();
 		this.groups = signalsData.getSignalGroupsData();
 		this.control = signalsData.getSignalControlData();
-		//added Lanes variable
-		//********************
 		this.lanes = lanes;
 
 		if (useHighwayDefaults) {
@@ -512,9 +514,10 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		
 		this.id=1;
 		for (Link link : this.network.getLinks().values()) {
-			//TODO: fill lanes (capacity, toLanes/Links). a signal for each lane.
-		}
-		
+			if (link.getNumberOfLanes() > 1){
+				FillLanes(link);
+			}
+		}		
 		
 		// all systems are created
 		
@@ -577,9 +580,11 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 
 		double nofLanes = defaults.lanesPerDirection;
-		double nofLanesForw = 0;
-		double nofLanesBack = 0;
+		double nofLanesForw = nofLanes;
+		double nofLanesBack = nofLanes;
 		Stack<Stack<Integer>> allTurnLanes = new Stack<Stack<Integer>>();
+		Stack<Stack<Integer>> allTurnLanesForw = new Stack<Stack<Integer>>();
+		Stack<Stack<Integer>> allTurnLanesBack = new Stack<Stack<Integer>>();
 		double laneCapacity = defaults.laneCapacity;
 		double freespeed = defaults.freespeed;
 		double freespeedFactor = defaults.freespeedFactor;
@@ -619,7 +624,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
         // the default number of lanes should be two instead of one.
         if(highway.equalsIgnoreCase("trunk") || highway.equalsIgnoreCase("primary") || highway.equalsIgnoreCase("secondary")){
             if((oneway || onewayReverse) && nofLanes == 1.0){
-                nofLanes = 2.0;
+                nofLanesForw = 2.0;
+                nofLanesBack = nofLanesForw;
             }
 		}
 
@@ -637,19 +643,43 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 
 		// check tag "lanes"
 		String lanesTag = way.tags.get(TAG_LANES);
-		if (lanesTag != null) {
+		String lanesTagForw = way.tags.get(TAG_LANESFORW);
+		String lanesTagBack = way.tags.get(TAG_LANESFORW);
+		if (lanesTag != null || lanesTagForw != null || lanesTagBack != null) {
 			try {
-				double totalNofLanes = Double.parseDouble(lanesTag);
-				if (totalNofLanes > 0) {
-					nofLanes = totalNofLanes;
-
-					//By default, the OSM lanes tag specifies the total number of lanes in both directions.
-					//So if the road is not oneway (onewayReverse), let's distribute them between both directions
-					//michalm, jan'16
-		            if (!oneway && !onewayReverse) {
-		                nofLanes /= 2.;
-		            }
+				double totalNofLanes;
+				if (lanesTag == null){
+					totalNofLanes = 2*nofLanesForw;
+				} else {
+					totalNofLanes = Double.parseDouble(lanesTag);
 				}
+				if (lanesTagForw != null || lanesTagBack != null) {
+					if (lanesTagForw != null && lanesTagBack == null){
+						nofLanesForw = Double.parseDouble(lanesTagForw);
+						nofLanesBack = totalNofLanes - nofLanesForw;
+					}
+					if (lanesTagForw == null && lanesTagBack != null){
+						nofLanesBack = Double.parseDouble(lanesTagBack);
+						nofLanesForw = totalNofLanes - nofLanesBack;
+					}
+					if (lanesTagForw != null && lanesTagBack != null) {
+						nofLanesForw = Double.parseDouble(lanesTagForw);
+						nofLanesBack = Double.parseDouble(lanesTagBack);
+					}
+				}else{
+					nofLanesForw = totalNofLanes;
+					nofLanesBack = totalNofLanes;
+					if (!oneway && !onewayReverse) {
+						nofLanesForw /= 2.;
+						nofLanesBack /= 2.;
+			        }
+				}
+					
+
+				//By default, the OSM lanes tag specifies the total number of lanes in both directions.
+				//So if the road is not oneway (onewayReverse), let's distribute them between both directions
+				//michalm, jan'16
+				
 			} catch (Exception e) {
 				if (!this.unknownLanesTags.contains(lanesTag)) {
 					this.unknownLanesTags.add(lanesTag);
@@ -658,57 +688,23 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			}
 		}
 		
-		//checks if there is a different number of lanes per direction and changes variables if so
-		String lanesForwTag = way.tags.get(TAG_LANESFORWARD);		
-		if(lanesForwTag != null){
-			double totalNofLanesForw = Double.parseDouble(lanesForwTag);
-			nofLanesForw = totalNofLanesForw;
-		}
-		
-		String lanesBackTag = way.tags.get(TAG_LANESBACKWARD);		
-		if(lanesBackTag != null){
-			double totalNofLanesBack = Double.parseDouble(lanesBackTag);
-			nofLanesForw = totalNofLanesBack;
-		}
-		
 		//added checker for turnlanes - using Stack to pop later--Array easier? - tempDir for alignment
 		//*********************************************************************************************
 		String turnLanes = way.tags.get(TAG_TURNLANES);
 		if(turnLanes != null){
-			String[] allTheLanes = turnLanes.split("|");
-			for(int i=0; i<allTheLanes.length; i++){
-				String[] directionsPerLane = allTheLanes[i].split(";");
-				Stack<Integer> tempLane = new Stack<Integer>();
-				for(int j=0; j<directionsPerLane.length; j++){
-					Integer tempDir = null;
-					if(directionsPerLane[j] == "left"){
-						tempDir = -1;
-					}else if(directionsPerLane[j] == "slight_left"){
-						tempDir = -2;
-					}else if(directionsPerLane[j] == "sharp_left"){
-						tempDir = -3;
-					}else if(directionsPerLane[j] == "merge_to_right"){
-						tempDir = -4;
-					}else if(directionsPerLane[j] == "reverse"){
-						tempDir = -5;
-					}else if(directionsPerLane[j] == "through"){
-						tempDir = 0;
-					}else if(directionsPerLane[j] == "right"){
-						tempDir = 1;
-					}else if(directionsPerLane[j] == "slight_right"){
-						tempDir = 2;
-					}else if(directionsPerLane[j] == "sharp_right"){
-						tempDir = 3;
-					}else if(directionsPerLane[j] == "merge_to_left"){
-						tempDir = 5;
-					}else if(directionsPerLane[j] == "none" || directionsPerLane[j] == null){
-						tempDir=null;
-					}
-					tempLane.push(tempDir);
-				}
-				allTurnLanes.push(tempLane);
-			}
+			createLaneStack(turnLanes, allTurnLanes);
 		}
+		
+		String turnLanesForw = way.tags.get(TAG_TURNLANESFORW);
+		if(turnLanes != null){
+			createLaneStack(turnLanesForw, allTurnLanesForw);
+		}
+		
+		String turnLanesBack = way.tags.get(TAG_TURNLANESBACK);
+		if(turnLanes != null){
+			createLaneStack(turnLanesBack, allTurnLanesBack);
+		}
+		
 
 		// create the link(s)
 		double capacity = nofLanes * laneCapacity;
@@ -729,13 +725,13 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				l.setLength(length);
 				l.setFreespeed(freespeed);
 				l.setCapacity(capacity);
-				l.setNumberOfLanes(nofLanes);
+				l.setNumberOfLanes(nofLanesForw);
 				if (l instanceof LinkImpl) {
 					((LinkImpl) l).setOrigId(origId);
 					((LinkImpl) l).setType( highway );
 				}
-				if(nofLanes > 1){
-					createLanes(l,lanes, nofLanes);
+				if(nofLanesForw > 1){
+					createLanes(l,lanes, nofLanesForw);
 				}
 				//checks if (to)Node is signalized and if signal applies for the direction
 				if (toNode.signalized && toNode.signalDir != 2 && !signalTooClose(toNode, fromNode, l)){
@@ -757,13 +753,13 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				l.setLength(length);
 				l.setFreespeed(freespeed);
 				l.setCapacity(capacity);
-				l.setNumberOfLanes(nofLanes);
+				l.setNumberOfLanes(nofLanesBack);
 				if (l instanceof LinkImpl) {
 					((LinkImpl) l).setOrigId(origId);
 					((LinkImpl) l).setType( highway );
 				}
-				if(nofLanes > 1){
-					createLanes(l,lanes, nofLanes);
+				if(nofLanesBack > 1){
+					createLanes(l,lanes, nofLanesBack);
 				}
 				//checks if (to)Node is signalized and if signal applies for the direction
 				if (fromNode.signalized && fromNode.signalDir != 1 && !signalTooClose(toNode, fromNode, l)){
@@ -793,13 +789,13 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				.createLanesToLinkAssignment(Id.create(l.getId(), Link.class));
 		lanes.addLanesToLinkAssignment(lanesForLink);
 		for(int i = 1; i <= nofLanes; i++){
-			//Lane lane = lanes.getFactory().createLane(Id.create("Lane"+id, Lane.class));
+			Lane lane = lanes.getFactory().createLane(Id.create("Lane"+id+"."+i, Lane.class));
 //			lane.setStartsAtMeterFromLinkEnd(meter); // hier setzen
 //			lane.setNumberOfRepresentedLanes(number); // hier setzen
 //			lane.setAlignment(alignment); // wie du moechtest
 //			lane.setCapacityVehiclesPerHour(capacity); // erst auf basis des kreuzungslayouts
 //			lane.addToLinkId(Id.createLinkId(0)); usw. spaeter fuellen
-//			lanesForLink.addLane(lane);
+			lanesForLink.addLane(lane);
 		}
 	}
 	
@@ -815,6 +811,59 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}else{
 			return false;
 		}
+	}
+	
+	private void createLaneStack (String turnLanes, Stack<Stack<Integer>> turnLaneStack){
+		
+		String[] allTheLanes = turnLanes.split("|");
+		for(int i=0; i<allTheLanes.length; i++){
+			String[] directionsPerLane = allTheLanes[i].split(";");
+			Stack<Integer> tempLane = new Stack<Integer>();
+			for(int j=0; j<directionsPerLane.length; j++){
+				Integer tempDir = null;
+				if(directionsPerLane[j] == "left"){
+					tempDir = 1;
+				}else if(directionsPerLane[j] == "slight_left"){
+					tempDir = 2;
+				}else if(directionsPerLane[j] == "sharp_left"){
+					tempDir = 3;
+				}else if(directionsPerLane[j] == "merge_to_right"){
+					tempDir = 4;
+				}else if(directionsPerLane[j] == "reverse"){
+					tempDir = 5;
+				}else if(directionsPerLane[j] == "through"){
+					tempDir = 0;
+				}else if(directionsPerLane[j] == "right"){
+					tempDir = -1;
+				}else if(directionsPerLane[j] == "slight_right"){
+					tempDir = -2;
+				}else if(directionsPerLane[j] == "sharp_right"){
+					tempDir = -3;
+				}else if(directionsPerLane[j] == "merge_to_left"){
+					tempDir = -5;
+				}else if(directionsPerLane[j] == "none" || directionsPerLane[j] == null){
+					tempDir=null;
+				}
+				tempLane.push(tempDir);
+			}
+			turnLaneStack.push(tempLane);
+		}
+	}
+	
+	private void FillLanes(Link link) {
+		//TODO: fill lanes (capacity, toLanes/Links). a signal for each lane.
+		
+		Link[] toLinks = (Link[]) link.getToNode().getOutLinks().values().toArray();
+		OrderToLinks(link, toLinks);
+		
+				
+	}
+	
+	private void OrderToLinks(Link link, Link[] toLinks){
+		List<Link> toLinkList;
+		for (int i = 0; i<toLinks.length; i++){
+			Vector2d v = new Vector2d();
+		}		
 	}
 	
 	private static class OsmFilter {
@@ -881,7 +930,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			this.id = id;
 		}
 		
-		public void putRelationToNode(){
+		public void putRestrictionToNode(){
 			resNode.fromRestricted = this.fromRestricted;
 			resNode.toRestricted = this.toRestricted;
 			resNode.restrictionValue = this.restrictionValue;
@@ -1090,7 +1139,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			
 			if ("relation".equals(name)){
 				if(this.currentRelation.restrictionValue != 0){
-					this.currentRelation.putRelationToNode();
+					this.currentRelation.putRestrictionToNode();
 				}
 			this.currentRelation = null;	
 			}
