@@ -49,6 +49,7 @@ public class RunPNetworkGenerator {
 		SignalSystemsConfigGroup signalSystemsConfigGroup = 
 				ConfigUtils.addOrGetModule(config, SignalSystemsConfigGroup.GROUPNAME, SignalSystemsConfigGroup.class);
 		signalSystemsConfigGroup.setUseSignalSystems(true);
+		config.qsim().setUseLanes(true); //nicht sicher, ob wir das hier (fuer xvis) brauchen. schadet aber nicht. theresa,may'17
 		
 		Scenario scenario = ScenarioUtils.createScenario(config);		
 		scenario.addScenarioElement(SignalsData.ELEMENT_NAME, new SignalsScenarioLoader(signalSystemsConfigGroup).loadSignalsData());
@@ -75,8 +76,9 @@ public class RunPNetworkGenerator {
 		 * Write the Network to a MATSim network file.
 		 */
 		String outputDir = "./input/";
-		
-		new NetworkWriter(network).write(outputDir + "network.xml");
+
+		config.network().setInputFile(outputDir + "network.xml");
+		new NetworkWriter(network).write(config.network().getInputFile());
 		
 		config.network().setLaneDefinitionsFile(outputDir + "lane_definitions_v2.0.xml");
 		
