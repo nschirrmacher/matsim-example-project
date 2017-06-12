@@ -113,15 +113,18 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
     private final static String TAG_TURNLANESFORW = "turn:lanes:forward";
     private final static String TAG_TURNLANESBACK = "turn:lanes:backward";
     private final static String TAG_LANESFORW = "lanes:forward";
-    private final static String TAG_LANESBACKW = "lanes:backward";
+    private final static String TAG_LANESBACK = "lanes:backward";
     private final static String TAG_RESTRICTION = "restriction";
     
     private final static String TAG_SIGNALS = "highway";
     
-	private final static String[] ALL_TAGS = new String[] {TAG_LANES, TAG_HIGHWAY, TAG_MAXSPEED, TAG_JUNCTION, TAG_ONEWAY, TAG_ACCESS, TAG_TURNLANES, TAG_TURNLANESFORW, TAG_TURNLANESBACK, TAG_LANESFORW, TAG_LANESBACKW, TAG_RESTRICTION, TAG_SIGNALS};
+	private final static String[] ALL_TAGS = new String[] {TAG_LANES, TAG_HIGHWAY, TAG_MAXSPEED, TAG_JUNCTION, TAG_ONEWAY, TAG_ACCESS, TAG_TURNLANES, TAG_TURNLANESFORW, TAG_TURNLANESBACK, TAG_LANESFORW, TAG_LANESBACK, TAG_RESTRICTION, TAG_SIGNALS};
 
+	private final static double PI = 3.141592654;
+	
 	private final Map<Long, OsmNode> nodes = new HashMap<Long, OsmNode>();
 	private final Map<Long, OsmWay> ways = new HashMap<Long, OsmWay>();
+	private final Map<Long, LaneStack> laneStacks = new HashMap<Long, LaneStack>();
 	private final Set<String> unknownHighways = new HashSet<String>();
 	private final Set<String> unknownMaxspeedTags = new HashSet<String>();
 	private final Set<String> unknownLanesTags = new HashSet<String>();
@@ -516,7 +519,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		this.id=1;
 		for (Link link : this.network.getLinks().values()) {
 			if (link.getNumberOfLanes() > 1){
-				FillLanes(link);
+				FillLanesAndCheckRestrictions(link);
 			}
 		}		
 		
@@ -527,7 +530,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		/*this.id = 1;
 		 *List<Id<SignalSystem>> ids = new LinkedList<Id<SignalSystem>>();
 		 *for (int i = 1, n = nodes.size(); i < n; i++) {
-		 *	//added condition to prevent NullPointerException -- TODO: check why
+		 *	//added condition to prevent NullPointerException
 		 *	if(this.nodes.get(i) != null){
 		 *		OsmNode checkedNode = this.nodes.get(i);
 		 *		if(checkedNode.used == true && checkedNode.signalized == true){
@@ -584,8 +587,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		double nofLanesForw = nofLanes;
 		double nofLanesBack = nofLanes;
 		Stack<Stack<Integer>> allTurnLanes = new Stack<Stack<Integer>>();
-		Stack<Stack<Integer>> allTurnLanesForw = new Stack<Stack<Integer>>();
-		Stack<Stack<Integer>> allTurnLanesBack = new Stack<Stack<Integer>>();
+		Stack<Stack<Integer>> allTurnLanesForw = null;
+		Stack<Stack<Integer>> allTurnLanesBack = null;
 		double laneCapacity = defaults.laneCapacity;
 		double freespeed = defaults.freespeed;
 		double freespeedFactor = defaults.freespeedFactor;
@@ -645,7 +648,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		// check tag "lanes"
 		String lanesTag = way.tags.get(TAG_LANES);
 		String lanesTagForw = way.tags.get(TAG_LANESFORW);
-		String lanesTagBack = way.tags.get(TAG_LANESFORW);
+		String lanesTagBack = way.tags.get(TAG_LANESBACK);
 		if (lanesTag != null || lanesTagForw != null || lanesTagBack != null) {
 			try {
 				double totalNofLanes;
@@ -693,16 +696,19 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		//*********************************************************************************************
 		String turnLanes = way.tags.get(TAG_TURNLANES);
 		if(turnLanes != null){
+			allTurnLanes = new Stack<Stack<Integer>>();
 			createLaneStack(turnLanes, allTurnLanes);
 		}
 		
 		String turnLanesForw = way.tags.get(TAG_TURNLANESFORW);
 		if(turnLanesForw != null){
+			allTurnLanesForw = new Stack<Stack<Integer>>();
 			createLaneStack(turnLanesForw, allTurnLanesForw);
 		}
 		
 		String turnLanesBack = way.tags.get(TAG_TURNLANESBACK);
 		if(turnLanesBack != null){
+			allTurnLanesBack = new Stack<Stack<Integer>>();
 			createLaneStack(turnLanesBack, allTurnLanesBack);
 		}
 		
@@ -733,6 +739,12 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				}
 				if(nofLanesForw > 1){
 					createLanes(l,lanes, nofLanesForw);
+					if(allTurnLanesForw != null){
+						this.laneStacks.put(id, new LaneStack(allTurnLanesBack));
+					}else if(allTurnLanes != null){
+						this.laneStacks.put(id, new LaneStack(allTurnLanes));
+					}
+					
 				}
 				//checks if (to)Node is signalized and if signal applies for the direction
 				if (toNode.signalized && toNode.signalDir != 2 && !signalTooClose(toNode, fromNode, l)){
@@ -761,6 +773,11 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				}
 				if(nofLanesBack > 1){
 					createLanes(l,lanes, nofLanesBack);
+					if(allTurnLanesBack != null){
+						this.laneStacks.put(id, new LaneStack(allTurnLanesBack));
+					}else if(allTurnLanes != null){
+						this.laneStacks.put(id, new LaneStack(allTurnLanes));
+					}
 				}
 				//checks if (to)Node is signalized and if signal applies for the direction
 				if (fromNode.signalized && fromNode.signalDir != 1 && !signalTooClose(toNode, fromNode, l)){
@@ -844,7 +861,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				}else if(directionsPerLane[j] == "merge_to_left"){
 					tempDir = -5;
 				}else if(directionsPerLane[j] == "none" || directionsPerLane[j] == null){
-					tempDir=null;
+					tempDir=-10;
 				}
 				tempLane.push(tempDir);
 			}
@@ -852,16 +869,102 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 	}
 	
-	private void FillLanes(Link link) {
+	private void FillLanesAndCheckRestrictions(Link link) {
 		//TODO: fill lanes (capacity, toLanes/Links). a signal for each lane.
 		
-		Link[] toLinks = (Link[]) link.getToNode().getOutLinks().values().toArray();
-		OrderToLinks(link, toLinks);
-		
-				
+		Link[] toLinks = new Link[link.getToNode().getOutLinks().size()];
+		for (int i = 0; i < link.getToNode().getOutLinks().size(); i++){
+			toLinks[i] = link.getToNode().getOutLinks().values().iterator().next();
+		}
+		ArrayList<LinkVector> linkVectors = OrderToLinks(link, toLinks);
+		RemoveRestrictedLinks(link, linkVectors);
+		if (laneStacks.containsKey(link.getId())){
+			Stack<Stack<Integer>> laneStack = laneStacks.get(link.getId()).turnLanes;
+			for(int i = (int) link.getNumberOfLanes(); i>0; i--){
+				Lane lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes().get(Id.create("Lane"+link.getId()+"."+i, Lane.class));
+				SetToLinksForLane(lane, laneStack.pop(), linkVectors);
+			}
+		}					
 	}
 	
-	private void OrderToLinks(Link link, Link[] toLinks){
+	public void SetToLinksForLane (Lane lane, Stack<Integer> laneStack, ArrayList<LinkVector> toLinks){
+		while(!laneStack.isEmpty()){
+			int tempDir = laneStack.pop();
+			ArrayList<LinkVector> tempLinks = toLinks;
+			if (tempDir == -10){
+				while(!tempLinks.isEmpty()){
+					lane.addToLinkId(tempLinks.get(0).getLink().getId());
+					tempLinks.remove(0);
+				}
+			}
+			if(tempDir <0 && tempDir>-5){
+				for (LinkVector lvec: tempLinks){
+					if (lvec.dirAlpha > PI)
+						tempLinks.remove(lvec);
+				}
+				if(tempLinks.size() == 1){
+					lane.addToLinkId(tempLinks.get(0).getLink().getId());
+				}else if(tempLinks.size() == 2){
+					if(tempDir == -3 || tempDir == -1)
+						lane.addToLinkId(tempLinks.get(0).getLink().getId());
+					if(tempDir == -2){
+						if(tempLinks.get(0).dirAlpha< PI/2)
+							lane.addToLinkId(tempLinks.get(0).getLink().getId());
+						else
+							lane.addToLinkId(tempLinks.get(1).getLink().getId());
+					}											
+				}else{
+					lane.addToLinkId(toLinks.get(0).getLink().getId());
+				}
+			}
+			if(tempDir >0 && tempDir<4){
+				for (LinkVector lvec: tempLinks){
+					if (lvec.dirAlpha < PI)
+						tempLinks.remove(lvec);
+				}
+				if(tempLinks.size() == 1){
+					lane.addToLinkId(tempLinks.get(0).getLink().getId());
+				}else if(tempLinks.size() == 2){
+					if(tempDir == 3 || tempDir == 1)
+						lane.addToLinkId(tempLinks.get(1).getLink().getId());
+					if(tempDir == -2){
+						if(tempLinks.get(1).dirAlpha > 3*PI/2)
+							lane.addToLinkId(tempLinks.get(1).getLink().getId());
+						else
+							lane.addToLinkId(tempLinks.get(0).getLink().getId());
+					}	
+				}else{
+					lane.addToLinkId(toLinks.get(toLinks.size()-1).getLink().getId());
+				}				
+			}
+			if (tempDir == 0 || tempDir == 4 || tempDir == -5){
+				LinkVector tempLV = toLinks.get(0);
+				double minDiff = PI;
+				for (LinkVector lvec: tempLinks){
+					double diff = Math.abs(lvec.dirAlpha - PI);
+					if (diff < minDiff){
+						minDiff = diff;
+						tempLV = lvec;						
+					}
+				}
+				lane.addToLinkId(tempLV.getLink().getId());
+			}
+			if (tempDir == 5){
+				LinkVector tempLV = toLinks.get(0);
+				double maxDiff = 0;
+				for (LinkVector lvec: tempLinks){
+					double diff = Math.abs(lvec.dirAlpha - PI);
+					if (diff > maxDiff){
+						maxDiff = diff;
+						tempLV = lvec;						
+					}
+				}
+				lane.addToLinkId(tempLV.getLink().getId());
+			}
+		}		
+	}
+	
+	private ArrayList<LinkVector> OrderToLinks(Link link, Link[] toLinks){
 		ArrayList<LinkVector> toLinkList = new ArrayList<LinkVector>();
 		LinkVector fromLink = new LinkVector(link);
 		for (int i = 0; i<toLinks.length; i++){
@@ -870,8 +973,38 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			toLinkList.add(toLink);						
 		}
 		Collections.sort(toLinkList);
-		for (int i = 0; i<toLinks.length; i++){
-			toLinks[i] = toLinkList.get(i).getLink();
+		return toLinkList;
+	}
+	
+	private void RemoveRestrictedLinks(Link fromLink, ArrayList<LinkVector> toLinks){
+		OsmNode toNode = nodes.get(fromLink.getToNode().getId());
+		
+		if(toNode.restriction == true){
+			if (fromLink instanceof LinkImpl) {
+				if(((LinkImpl) fromLink).getOrigId() == Long.toString(toNode.fromRestricted.id)){
+					if (toNode.restrictionValue == -1){
+						for(LinkVector linkVector : toLinks){
+							if (linkVector.getLink() instanceof LinkImpl) {
+								if(((LinkImpl) linkVector.getLink()).getOrigId() == Long.toString(toNode.toRestricted.id)){
+									toLinks.remove(linkVector);
+									break;
+								}	
+							}
+						}	
+					}else{
+						for(LinkVector linkVector : toLinks){
+							if (linkVector.getLink() instanceof LinkImpl) {
+								if(((LinkImpl) linkVector.getLink()).getOrigId() == Long.toString(toNode.toRestricted.id)){
+									LinkVector onlyLink = linkVector;
+									toLinks.clear();
+									toLinks.add(onlyLink);
+									break;
+								}	
+							}
+						}
+					}
+				}
+			}						
 		}
 	}
 	
@@ -880,7 +1013,6 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		private double x;
 		private double y;
 		private double alpha;
-		private double pi = 3.141592654;
 		private double dirAlpha;
 		
 		public LinkVector(Link link){
@@ -896,14 +1028,14 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			if (this.y > 0){
 				this.alpha = ref.angle(linkV);
 			}else{
-				this.alpha = 2*pi-ref.angle(linkV);
+				this.alpha = 2*PI-ref.angle(linkV);
 			}
 		}
 		
 		public void calculateRotation(LinkVector linkVector){
-			this.dirAlpha = this.alpha - linkVector.getAlpha() - pi;
+			this.dirAlpha = this.alpha - linkVector.getAlpha() - PI;
 			if (this.dirAlpha<0){
-				this.dirAlpha += 2*pi;
+				this.dirAlpha += 2*PI;
 			}
 			
 		}
@@ -931,6 +1063,15 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				return -1;
 		}
 		
+	}
+	
+	private static class LaneStack{
+		public final Stack<Stack<Integer>> turnLanes;
+		
+		public LaneStack(Stack<Stack<Integer>> turnLanes){
+			this.turnLanes = turnLanes;
+		}
+				
 	}
 	
 	private static class OsmFilter {
@@ -963,7 +1104,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		public int signalDir = 0;
 		//including traffic_signals:direction to prevent wrong signals in MATSim
 		//**********************************************************************
-		public boolean restriction;
+		public boolean restriction = false;
 		public OsmWay fromRestricted;
 		public OsmWay toRestricted;
 		public int restrictionValue = 0;
@@ -980,7 +1121,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		public final List<Long> nodes = new ArrayList<Long>(4);
 		public final Map<String, String> tags = new HashMap<String, String>(4);
 		public int hierarchy = -1;
-
+		
 		public OsmWay(final long id) {
 			this.id = id;
 		}

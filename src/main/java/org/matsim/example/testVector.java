@@ -44,6 +44,8 @@ public class testVector {
 		System.out.println(toLinks[0].getId().toString());
 		System.out.println(toLinks[1].getId().toString());
 		System.out.println(toLinks[2].getId().toString());
+		double a = 1.8;
+		System.out.println((int) a);
 		
 	}
 	
