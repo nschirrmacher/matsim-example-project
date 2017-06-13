@@ -70,7 +70,9 @@ public class RunPNetworkGenerator {
 		 * Clean the Network. Cleaning means removing disconnected components, so that afterwards there is a route from every link
 		 * to every other link. This may not be the case in the initial network converted from OpenStreetMap.
 		 */
-		new NetworkCleaner().run(network);
+		
+		//FIXME: NetworkCleaner() has to remove Lanes as well!!!
+//		new NetworkCleaner().run(network);
 		
 		/*
 		 * Write the Network to a MATSim network file.

@@ -517,6 +517,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 		
 		this.id=1;
+		
+		// already created Lanes are given ToLinks	
 		for (Link link : this.network.getLinks().values()) {
 			if (link.getNumberOfLanes() > 1){
 				FillLanesAndCheckRestrictions(link);
@@ -586,7 +588,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		double nofLanes = defaults.lanesPerDirection;
 		double nofLanesForw = nofLanes;
 		double nofLanesBack = nofLanes;
-		Stack<Stack<Integer>> allTurnLanes = new Stack<Stack<Integer>>();
+		Stack<Stack<Integer>> allTurnLanes = null;
 		Stack<Stack<Integer>> allTurnLanesForw = null;
 		Stack<Stack<Integer>> allTurnLanesBack = null;
 		double laneCapacity = defaults.laneCapacity;
@@ -697,19 +699,19 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		String turnLanes = way.tags.get(TAG_TURNLANES);
 		if(turnLanes != null){
 			allTurnLanes = new Stack<Stack<Integer>>();
-			createLaneStack(turnLanes, allTurnLanes);
+			createLaneStack(turnLanes, allTurnLanes, nofLanesForw);
 		}
 		
 		String turnLanesForw = way.tags.get(TAG_TURNLANESFORW);
 		if(turnLanesForw != null){
 			allTurnLanesForw = new Stack<Stack<Integer>>();
-			createLaneStack(turnLanesForw, allTurnLanesForw);
+			createLaneStack(turnLanesForw, allTurnLanesForw, nofLanesForw);
 		}
 		
 		String turnLanesBack = way.tags.get(TAG_TURNLANESBACK);
 		if(turnLanesBack != null){
 			allTurnLanesBack = new Stack<Stack<Integer>>();
-			createLaneStack(turnLanesBack, allTurnLanesBack);
+			createLaneStack(turnLanesBack, allTurnLanesBack, nofLanesForw);
 		}
 		
 
@@ -737,10 +739,13 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					((LinkImpl) l).setOrigId(origId);
 					((LinkImpl) l).setType( highway );
 				}
+				
+				//create Lanes only if more than one Lane detected
 				if(nofLanesForw > 1){
 					createLanes(l,lanes, nofLanesForw);
+					//if turn:lanes:forward exists save it for later, otherwise save turn:lanes or save nothing
 					if(allTurnLanesForw != null){
-						this.laneStacks.put(id, new LaneStack(allTurnLanesBack));
+						this.laneStacks.put(id, new LaneStack(allTurnLanesForw));
 					}else if(allTurnLanes != null){
 						this.laneStacks.put(id, new LaneStack(allTurnLanes));
 					}
@@ -771,8 +776,11 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					((LinkImpl) l).setOrigId(origId);
 					((LinkImpl) l).setType( highway );
 				}
+				
+				//create Lanes only if more than one Lane detected
 				if(nofLanesBack > 1){
 					createLanes(l,lanes, nofLanesBack);
+					//if turn:lanes:forward exists save it for later, otherwise save turn:lanes or save nothing
 					if(allTurnLanesBack != null){
 						this.laneStacks.put(id, new LaneStack(allTurnLanesBack));
 					}else if(allTurnLanes != null){
@@ -832,75 +840,152 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 	}
 	
-	private void createLaneStack (String turnLanes, Stack<Stack<Integer>> turnLaneStack){
+	/*  Creates a Stack of Lanedirection informations for every Lane. These Stacks are stacked-up for all Lanes.
+	 *  Directions are saved as int placeholder-variables. The far right Lane is on top of the Stack. nschirrmacher on 170613
+	 */
+	private void createLaneStack (String turnLanes, Stack<Stack<Integer>> turnLaneStack, double nofLanes){
 		
-		String[] allTheLanes = turnLanes.split("|");
+		String[] allTheLanes = turnLanes.split("\\|");
 		for(int i=0; i<allTheLanes.length; i++){
 			String[] directionsPerLane = allTheLanes[i].split(";");
 			Stack<Integer> tempLane = new Stack<Integer>();
 			for(int j=0; j<directionsPerLane.length; j++){
 				Integer tempDir = null;
-				if(directionsPerLane[j] == "left"){
+				if(directionsPerLane[j].equals("left")){
 					tempDir = 1;
-				}else if(directionsPerLane[j] == "slight_left"){
+				}else if(directionsPerLane[j].equals("slight_left")){
 					tempDir = 2;
-				}else if(directionsPerLane[j] == "sharp_left"){
+				}else if(directionsPerLane[j].equals("sharp_left")){
 					tempDir = 3;
-				}else if(directionsPerLane[j] == "merge_to_right"){
+				}else if(directionsPerLane[j].equals("merge_to_right")){
 					tempDir = 4;
-				}else if(directionsPerLane[j] == "reverse"){
+				}else if(directionsPerLane[j].equals("reverse")){
 					tempDir = 5;
-				}else if(directionsPerLane[j] == "through"){
+				}else if(directionsPerLane[j].equals("through")){
 					tempDir = 0;
-				}else if(directionsPerLane[j] == "right"){
+				}else if(directionsPerLane[j].equals("right")){
 					tempDir = -1;
-				}else if(directionsPerLane[j] == "slight_right"){
+				}else if(directionsPerLane[j].equals("slight_right")){
 					tempDir = -2;
-				}else if(directionsPerLane[j] == "sharp_right"){
+				}else if(directionsPerLane[j].equals("sharp_right")){
 					tempDir = -3;
-				}else if(directionsPerLane[j] == "merge_to_left"){
+				}else if(directionsPerLane[j].equals("merge_to_left")){
 					tempDir = -5;
-				}else if(directionsPerLane[j] == "none" || directionsPerLane[j] == null){
+				}else if(directionsPerLane[j].equals("none") || directionsPerLane[j].equals(null)){
 					tempDir=-10;
+				}else{
+					tempDir=-10;
+					log.warn("Could not read Turnlanes! "+directionsPerLane[j]);
 				}
 				tempLane.push(tempDir);
 			}
 			turnLaneStack.push(tempLane);
 		}
+		//fills up Stack with dummy Lanes if size of Stack does not match number of Lanes
+		Stack<Integer> tempLane = new Stack<Integer>();
+		while(turnLaneStack.size() < nofLanes){
+			tempLane.push(-10);
+			turnLaneStack.push(tempLane);
+		}
 	}
 	
+	/*  Fills already created Lanes of a Link with available informations: toLinks, ... (more planned).
+	 *  nschirrmacher on 170613 
+	 *  FIXME: toLinks are not working properly and create a lot of problems
+	 */
 	private void FillLanesAndCheckRestrictions(Link link) {
 		//TODO: fill lanes (capacity, toLanes/Links). a signal for each lane.
 		
-		Link[] toLinks = new Link[link.getToNode().getOutLinks().size()];
-		for (int i = 0; i < link.getToNode().getOutLinks().size(); i++){
-			toLinks[i] = link.getToNode().getOutLinks().values().iterator().next();
+		//create a List of all toLinks
+		List<Link> toLinks = new ArrayList<Link>();
+		for(Link l: link.getToNode().getOutLinks().values()){
+			toLinks.add(l);
 		}
-		ArrayList<LinkVector> linkVectors = OrderToLinks(link, toLinks);
-		RemoveRestrictedLinks(link, linkVectors);
-		if (laneStacks.containsKey(link.getId())){
-			Stack<Stack<Integer>> laneStack = laneStacks.get(link.getId()).turnLanes;
+		
+		//checker if List is empty, if so remove the existing Lanes
+		if(toLinks.isEmpty()){
 			for(int i = (int) link.getNumberOfLanes(); i>0; i--){
 				Lane lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes().get(Id.create("Lane"+link.getId()+"."+i, Lane.class));
-				SetToLinksForLane(lane, laneStack.pop(), linkVectors);
+				lanes.getLanesToLinkAssignments().values().remove(lane); //FIXME:does not work!!!
 			}
-		}					
+			log.warn("toLinks.isEmpty() @ " + link.getId().toString());
+			return;
+		}
+		
+		//toLinks are being converted to a LinkVector and sorted from very right to very left.
+		List<LinkVector> linkVectors = OrderToLinks(link, toLinks);
+		
+		//removes restricted toLinks from List
+		RemoveRestrictedLinks(link, linkVectors);
+		
+		//checkers if List is empty
+		if(linkVectors.isEmpty()){
+			for(int i = (int) link.getNumberOfLanes(); i>0; i--){
+				Lane lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes().get(Id.create("Lane"+link.getId()+"."+i, Lane.class));
+				lanes.getLanesToLinkAssignments().values().remove(lane);
+			}
+			log.warn("linkVectors.isEmpty() @ " + link.getId().toString());
+			return;
+		}
+		
+		if(linkVectors.size()==0){
+			for(int i = (int) link.getNumberOfLanes(); i>0; i--){
+				Lane lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes().get(Id.create("Lane"+link.getId()+"."+i, Lane.class));
+				lanes.getLanesToLinkAssignments().values().remove(lane);
+			}
+			log.warn("linkVectors.size() == 0");
+			return;
+		}
+		
+		//if a LaneStack exists, fill Lanes with turn:lane informations, otherwise fill by default
+		//Long.valueOf... easier way? - Use LinkId to get to the LaneStack (requires long)
+		long key = Long.valueOf(link.getId().toString());
+		if (laneStacks.containsKey(key)){
+			Stack<Stack<Integer>> laneStack = laneStacks.get(key).turnLanes;
+			for(int i = (int) link.getNumberOfLanes(); i>0; i--){
+				Lane lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes().get(Id.create("Lane"+link.getId()+"."+i, Lane.class));
+				SetToLinksForLaneWithTurnLanes(lane, laneStack.pop(), linkVectors);
+			}
+		}else{
+			for(int i = (int) link.getNumberOfLanes(); i>0; i--){
+				Lane lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes().get(Id.create("Lane"+link.getId()+"."+i, Lane.class));
+				SetToLinksForLaneDefault(lane, linkVectors);
+			}
+		}
+		//log.warn("Went through once. @Link " + link.getId().toString());
 	}
 	
-	public void SetToLinksForLane (Lane lane, Stack<Integer> laneStack, ArrayList<LinkVector> toLinks){
+	//not ready yet, just to get class working
+	public void SetToLinksForLaneDefault (Lane lane, List<LinkVector> toLinks){
+		lane.addToLinkId(toLinks.get(0).getLink().getId());			
+	}
+	
+	//Fills Lanes with turn:lane informations
+	public void SetToLinksForLaneWithTurnLanes (Lane lane, Stack<Integer> laneStack, List<LinkVector> toLinks){
+		List<LinkVector> removeLinks = new ArrayList<LinkVector>();
+		
 		while(!laneStack.isEmpty()){
-			int tempDir = laneStack.pop();
-			ArrayList<LinkVector> tempLinks = toLinks;
+						
+			Integer tempDir = laneStack.pop();
+			List<LinkVector> tempLinks = new ArrayList<LinkVector>();
+			
+			for (LinkVector lv: toLinks){
+				tempLinks.add(lv);
+			}					
+			removeLinks.clear();
+			log.info("Trying to Fill " + lane.getId().toString() + " with Direction: " + tempDir + " with #ofToLinks: " + toLinks.size() );
 			if (tempDir == -10){
-				while(!tempLinks.isEmpty()){
-					lane.addToLinkId(tempLinks.get(0).getLink().getId());
-					tempLinks.remove(0);
+				for (LinkVector lvec: tempLinks){
+					lane.addToLinkId(lvec.getLink().getId());
 				}
 			}
 			if(tempDir <0 && tempDir>-5){
 				for (LinkVector lvec: tempLinks){
 					if (lvec.dirAlpha > PI)
-						tempLinks.remove(lvec);
+						removeLinks.add(lvec);
+				}
+				for (LinkVector removeLink: removeLinks){
+					tempLinks.remove(removeLink);
 				}
 				if(tempLinks.size() == 1){
 					lane.addToLinkId(tempLinks.get(0).getLink().getId());
@@ -913,14 +998,17 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						else
 							lane.addToLinkId(tempLinks.get(1).getLink().getId());
 					}											
-				}else{
-					lane.addToLinkId(toLinks.get(0).getLink().getId());
-				}
+				}else{					
+						lane.addToLinkId(toLinks.get(0).getLink().getId());
+				}	
 			}
 			if(tempDir >0 && tempDir<4){
 				for (LinkVector lvec: tempLinks){
 					if (lvec.dirAlpha < PI)
-						tempLinks.remove(lvec);
+						removeLinks.add(lvec);
+				}
+				for (LinkVector removeLink: removeLinks){
+					tempLinks.remove(removeLink);
 				}
 				if(tempLinks.size() == 1){
 					lane.addToLinkId(tempLinks.get(0).getLink().getId());
@@ -933,11 +1021,12 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						else
 							lane.addToLinkId(tempLinks.get(0).getLink().getId());
 					}	
-				}else{
-					lane.addToLinkId(toLinks.get(toLinks.size()-1).getLink().getId());
+				}else{					
+						lane.addToLinkId(toLinks.get(toLinks.size()-1).getLink().getId());					
 				}				
 			}
 			if (tempDir == 0 || tempDir == 4 || tempDir == -5){
+				
 				LinkVector tempLV = toLinks.get(0);
 				double minDiff = PI;
 				for (LinkVector lvec: tempLinks){
@@ -947,7 +1036,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						tempLV = lvec;						
 					}
 				}
-				lane.addToLinkId(tempLV.getLink().getId());
+				lane.addToLinkId(tempLV.getLink().getId());								
 			}
 			if (tempDir == 5){
 				LinkVector tempLV = toLinks.get(0);
@@ -959,16 +1048,20 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						tempLV = lvec;						
 					}
 				}
-				lane.addToLinkId(tempLV.getLink().getId());
+				lane.addToLinkId(tempLV.getLink().getId());				
 			}
 		}		
 	}
 	
-	private ArrayList<LinkVector> OrderToLinks(Link link, Link[] toLinks){
-		ArrayList<LinkVector> toLinkList = new ArrayList<LinkVector>();
+	/*	This class gets a fromLink and a List of toLinks. It returns a sorted List of LinkVectors.
+	 *  The LinkVectors are sorted from very right to very left. This is useful to check against
+	 *  the turnlane-informations later. nschirrmacher on 170613
+	 */
+	private List<LinkVector> OrderToLinks(Link link, List<Link> toLinks){
+		List<LinkVector> toLinkList = new ArrayList<LinkVector>();
 		LinkVector fromLink = new LinkVector(link);
-		for (int i = 0; i<toLinks.length; i++){
-			LinkVector toLink = new LinkVector(toLinks[i]);
+		for (int i = 0; i<toLinks.size(); i++){
+			LinkVector toLink = new LinkVector(toLinks.get(i));
 			toLink.calculateRotation(fromLink);
 			toLinkList.add(toLink);						
 		}
@@ -976,10 +1069,10 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		return toLinkList;
 	}
 	
-	private void RemoveRestrictedLinks(Link fromLink, ArrayList<LinkVector> toLinks){
-		OsmNode toNode = nodes.get(fromLink.getToNode().getId());
-		
-		if(toNode.restriction == true){
+	private void RemoveRestrictedLinks(Link fromLink, List<LinkVector> toLinks){
+		//Long.valueOf... easier way?
+		OsmNode toNode = nodes.get(Long.valueOf(fromLink.getToNode().getId().toString()));
+		if(toNode.restriction){
 			if (fromLink instanceof LinkImpl) {
 				if(((LinkImpl) fromLink).getOrigId() == Long.toString(toNode.fromRestricted.id)){
 					if (toNode.restrictionValue == -1){
@@ -987,6 +1080,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 							if (linkVector.getLink() instanceof LinkImpl) {
 								if(((LinkImpl) linkVector.getLink()).getOrigId() == Long.toString(toNode.toRestricted.id)){
 									toLinks.remove(linkVector);
+									log.warn("'No'-Restriction @ " + fromLink.getId().toString());
 									break;
 								}	
 							}
@@ -998,6 +1092,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 									LinkVector onlyLink = linkVector;
 									toLinks.clear();
 									toLinks.add(onlyLink);
+									log.warn("'Only'-Restriction @ " + fromLink.getId().toString());
 									break;
 								}	
 							}
