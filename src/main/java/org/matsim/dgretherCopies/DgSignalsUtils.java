@@ -87,9 +87,6 @@ public class DgSignalsUtils {
 			for (SignalData signal : ss.getSignalData().values()){
 				Id<Link> linkId = signal.getLinkId();
 				link = net.getLinks().get(linkId);
-				if (link == null){
-					System.out.println("Stop: " + linkId);
-				}
 				node = link.getToNode();
 				nodes.add(node.getId());
 			}
