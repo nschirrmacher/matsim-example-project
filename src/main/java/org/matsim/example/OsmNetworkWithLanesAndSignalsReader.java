@@ -121,6 +121,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	private final static String[] ALL_TAGS = new String[] {TAG_LANES, TAG_HIGHWAY, TAG_MAXSPEED, TAG_JUNCTION, TAG_ONEWAY, TAG_ACCESS, TAG_TURNLANES, TAG_TURNLANESFORW, TAG_TURNLANESBACK, TAG_LANESFORW, TAG_LANESBACK, TAG_RESTRICTION, TAG_SIGNALS};
 
 	private final static double PI = 3.141592654;
+	private final static int DEFAULT_LANE_OFFSET = 35; // TODO oder einfach die haelfte der link laenge
 	
 	private final Map<Long, OsmNode> nodes = new HashMap<Long, OsmNode>();
 	private final Map<Long, OsmWay> ways = new HashMap<Long, OsmWay>();

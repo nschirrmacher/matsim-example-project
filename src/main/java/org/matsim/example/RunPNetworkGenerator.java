@@ -1,5 +1,8 @@
 package org.matsim.example;
 
+import java.util.Set;
+import java.util.TreeSet;
+
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.contrib.signals.SignalSystemsConfigGroup;
@@ -10,10 +13,14 @@ import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.config.ConfigWriter;
 import org.matsim.core.network.NetworkWriter;
+import org.matsim.core.network.algorithms.NetworkCalcTopoType;
 import org.matsim.core.network.algorithms.NetworkCleaner;
 import org.matsim.core.scenario.ScenarioUtils;
 import org.matsim.core.utils.geometry.CoordinateTransformation;
 import org.matsim.core.utils.geometry.transformations.TransformationFactory;
+import org.matsim.dgretherCopies.LanesConsistencyChecker;
+import org.matsim.dgretherCopies.NetworkLanesSignalsSimplifier;
+import org.matsim.dgretherCopies.SignalSystemsDataConsistencyChecker;
 import org.matsim.lanes.data.v20.LaneDefinitionsWriter20;
 import org.matsim.lanes.data.v20.Lanes;
 
@@ -71,13 +78,29 @@ public class RunPNetworkGenerator {
 		 * to every other link. This may not be the case in the initial network converted from OpenStreetMap.
 		 */
 		
-		//FIXME: NetworkCleaner() has to remove Lanes as well!!!
-//		new NetworkCleaner().run(network);
+		new NetworkCleaner().run(network);
 		
+		LanesConsistencyChecker lanesConsistency = new LanesConsistencyChecker(network, lanes);
+		lanesConsistency.checkConsistency();
+		SignalSystemsDataConsistencyChecker signalsConsistency = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
+		signalsConsistency.checkConsistency();
+		// TODO signal contol + groups consistency checker
+				
+		// TODO check if that works
+		// run a network simplifier to merge links with same attributes
+		Set<Integer> nodeTypesToMerge = new TreeSet<Integer>();
+		nodeTypesToMerge.add(NetworkCalcTopoType.PASS1WAY); // PASS1WAY: 1 in- and 1 outgoing link
+		nodeTypesToMerge.add(NetworkCalcTopoType.PASS2WAY); // PASS2WAY: 2 in- and 2 outgoing links
+		NetworkLanesSignalsSimplifier nsimply = new NetworkLanesSignalsSimplifier();
+		nsimply.setNodesToMerge(nodeTypesToMerge);
+		nsimply.setSimplifySignalizedNodes(false);
+		nsimply.setMaximalLinkLength(Double.MAX_VALUE);
+		nsimply.simplifyNetworkLanesAndSignals(network, lanes, signalsData);
+
 		/*
 		 * Write the Network to a MATSim network file.
 		 */
-		String outputDir = "./input/";
+		String outputDir = "./output/";
 
 		config.network().setInputFile(outputDir + "network.xml");
 		new NetworkWriter(network).write(config.network().getInputFile());
