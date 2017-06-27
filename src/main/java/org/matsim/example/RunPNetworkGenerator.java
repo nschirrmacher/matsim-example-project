@@ -78,24 +78,24 @@ public class RunPNetworkGenerator {
 		 * to every other link. This may not be the case in the initial network converted from OpenStreetMap.
 		 */
 		
-		new NetworkCleaner().run(network);
-		
-		LanesConsistencyChecker lanesConsistency = new LanesConsistencyChecker(network, lanes);
-		lanesConsistency.checkConsistency();
-		SignalSystemsDataConsistencyChecker signalsConsistency = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
-		signalsConsistency.checkConsistency();
+//		new NetworkCleaner().run(network);
+//		
+//		LanesConsistencyChecker lanesConsistency = new LanesConsistencyChecker(network, lanes);
+//		lanesConsistency.checkConsistency();
+//		SignalSystemsDataConsistencyChecker signalsConsistency = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
+//		signalsConsistency.checkConsistency();
 		// TODO signal contol + groups consistency checker
 				
 		// TODO check if that works
 		// run a network simplifier to merge links with same attributes
-		Set<Integer> nodeTypesToMerge = new TreeSet<Integer>();
-		nodeTypesToMerge.add(NetworkCalcTopoType.PASS1WAY); // PASS1WAY: 1 in- and 1 outgoing link
-		nodeTypesToMerge.add(NetworkCalcTopoType.PASS2WAY); // PASS2WAY: 2 in- and 2 outgoing links
-		NetworkLanesSignalsSimplifier nsimply = new NetworkLanesSignalsSimplifier();
-		nsimply.setNodesToMerge(nodeTypesToMerge);
-		nsimply.setSimplifySignalizedNodes(false);
-		nsimply.setMaximalLinkLength(Double.MAX_VALUE);
-		nsimply.simplifyNetworkLanesAndSignals(network, lanes, signalsData);
+//		Set<Integer> nodeTypesToMerge = new TreeSet<Integer>();
+//		nodeTypesToMerge.add(NetworkCalcTopoType.PASS1WAY); // PASS1WAY: 1 in- and 1 outgoing link
+//		nodeTypesToMerge.add(NetworkCalcTopoType.PASS2WAY); // PASS2WAY: 2 in- and 2 outgoing links
+//		NetworkLanesSignalsSimplifier nsimply = new NetworkLanesSignalsSimplifier();
+//		nsimply.setNodesToMerge(nodeTypesToMerge);
+//		nsimply.setSimplifySignalizedNodes(false);
+//		nsimply.setMaximalLinkLength(Double.MAX_VALUE);
+//		nsimply.simplifyNetworkLanesAndSignals(network, lanes, signalsData);
 
 		/*
 		 * Write the Network to a MATSim network file.
