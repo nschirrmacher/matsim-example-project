@@ -634,24 +634,38 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 		
 		for (OsmNode node : this.nodes.values()) {			
-			if (!checkedNodes.contains(node) && node.used && node.signalized && node.ways.size() > 1) {				
+			if (!checkedNodes.contains(node) && node.used && node.ways.size() > 1) {				
 				List<OsmNode> junctionNodes = new ArrayList<>();				
-				double distance = 50;
+				double distance = 40;
 				findCloseJunctionNodesWithSignals(node, node, junctionNodes, checkedNodes, distance);
 //				log.info("JunctionNodes Size: " + junctionNodes.size());
 				
 				if (junctionNodes.size() > 1) {
 //					if (junctionNodes.size() == 2 || junctionNodes.size() == 4) {
-						double repX = 0;
-						double repY = 0;
+						double repXmin = 0;
+						double repXmax = 0;
+						double repYmin = 0;
+						double repYmax = 0;
+						double repX;
+						double repY;
+						boolean signalized = false;
 						for (OsmNode tempNode : junctionNodes) {
-							repX += tempNode.coord.getX();
-							repY += tempNode.coord.getY();
+							if(repXmin == 0 || tempNode.coord.getX() < repXmin)
+								repXmin = tempNode.coord.getX();
+							if(repXmax == 0 || tempNode.coord.getX() > repXmax)
+								repXmax = tempNode.coord.getX();
+							if(repYmin == 0 || tempNode.coord.getY() < repYmin)
+								repYmin = tempNode.coord.getY();
+							if(repYmax == 0 || tempNode.coord.getY() > repYmax)
+								repYmax = tempNode.coord.getY();
+							if(tempNode.signalized)
+								signalized = true;
 						}
-						repX /= junctionNodes.size();
-						repY /= junctionNodes.size();
+						repX = repXmin + (repXmax - repXmin)/2;
+						repY = repYmin + (repYmax - repYmin)/2;
 						OsmNode junctionNode = new OsmNode(this.id, new Coord(repX, repY));
-						junctionNode.signalized = true;
+						if(signalized)
+							junctionNode.signalized = true;
 						junctionNode.used = true;
 						for (OsmNode tempNode : junctionNodes) {
 							tempNode.repJunNode = junctionNode;
@@ -665,6 +679,52 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				}
 			}
 		}
+		
+		for (OsmNode node : this.nodes.values()) {			
+			if (!checkedNodes.contains(node) && node.used && node.ways.size() > 1) {
+				boolean suit = false;
+				OsmNode otherNode = null;
+				boolean otherSuit = false;
+				for(OsmWay way : node.ways.values()){
+					String oneway = way.tags.get(TAG_ONEWAY);
+					if(oneway != null){
+						suit = true;
+					}else{
+						for (int i = 0; i < way.nodes.size(); i++) {
+							if(otherSuit == true)
+								break;
+							otherNode = nodes.get(way.nodes.get(i));
+							if(node.getDistance(otherNode) < 50 && !checkedNodes.contains(otherNode) && otherNode.ways.size() > 1 && otherNode.used && !node.equals(otherNode)){
+								for(OsmWay otherWay : otherNode.ways.values()){
+									String otherOneway = otherWay.tags.get(TAG_ONEWAY);
+									if(otherOneway != null){
+										otherSuit = true;
+										break;
+									}
+								}
+							}							
+						}
+					}
+					if(suit == true && otherSuit == true)
+						break;					
+				}
+				if(suit == true && otherSuit == true && otherNode != null){
+					double repX = (node.coord.getX() + otherNode.coord.getX())/2;
+					double repY = (node.coord.getY() + otherNode.coord.getY())/2;
+					OsmNode junctionNode = new OsmNode(this.id, new Coord(repX, repY));
+					if(node.signalized || otherNode.signalized)
+						junctionNode.signalized = true;
+					junctionNode.used = true;
+					node.repJunNode = junctionNode;
+					checkedNodes.add(node);
+					otherNode.repJunNode = junctionNode;
+					checkedNodes.add(otherNode);
+					addingNodes.add(junctionNode);
+					log.warn("I did sth!");
+					id++;
+				}
+			}
+		}	
 		
 //		for (OsmNode node : this.nodes.values()) {			
 //			if (!checkedNodes.contains(node) && node.used && !node.signalized) {				
@@ -859,7 +919,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			}
 			if(junctionNodes.contains(firstNode))
 				break;
-			int size = junctionNodes.size();
+//			int size = junctionNodes.size();
 //			log.warn("Check started at Node: " + firstNode.id + "\n \t checking way: " + way.id + " JN size = " + size);
 		}
 	}
