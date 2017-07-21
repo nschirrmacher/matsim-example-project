@@ -872,6 +872,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 							.createSignalData(Id.create("Signal" + link.getId() + "." + end, Signal.class));
 					signal.setLinkId(Id.create(link.getId(), Link.class));
 					this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
+					//create Signals per Lane, maybe one left one other
 				}
 			}
 		}
