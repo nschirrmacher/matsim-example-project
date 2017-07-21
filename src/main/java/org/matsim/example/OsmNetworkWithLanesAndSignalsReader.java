@@ -860,6 +860,25 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					}
 				}
 			}
+			Id<SignalSystem> systemId = Id.create("System" + link.getToNode().getId(), SignalSystem.class);
+			if(this.systems.getSignalSystemData().containsKey(systemId) && lanes.getLanesToLinkAssignments().containsKey(link.getId())){
+				for(Lane lane : lanes.getLanesToLinkAssignments().get(link.getId()).getLanes().values()){
+					String end = lane.getId().toString().split("\\.")[1];
+					log.info(end);
+					if(end.equals("ol")){
+						break;
+					}
+					SignalData signal = this.systems.getFactory()
+							.createSignalData(Id.create("Signal" + link.getId() + "." + end, Signal.class));
+					signal.setLinkId(Id.create(link.getId(), Link.class));
+					this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
+				}
+			}
+		}
+		
+		for(SignalSystemData signalSystem : this.systems.getSignalSystemData().values()){
+			//SignalData signal = this.systems.getFactory()
+			//		.createSignalData(Id.create("Signal" + link.getId(), Signal.class));
 		}
 
 		// all systems are created
@@ -1025,9 +1044,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		String maxspeedTag = way.tags.get(TAG_MAXSPEED);
 		if (maxspeedTag != null) {
 			try {
-				freespeed = Double.parseDouble(maxspeedTag) / 3.6; // convert
-																	// km/h to
-																	// m/s
+				freespeed = Double.parseDouble(maxspeedTag) / 3.6; // convert km/h to m/s
 			} catch (NumberFormatException e) {
 				if (!this.unknownMaxspeedTags.contains(maxspeedTag)) {
 					this.unknownMaxspeedTags.add(maxspeedTag);
@@ -1174,7 +1191,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					/*
 					 * TODO spaeter fuer Lanes hier pro Lane ein Signal
 					 * erstellen, Nils&Theresa Mar'17
-					 */
+					 */					
 				}
 				network.addLink(l);
 				this.id++;
@@ -1536,18 +1553,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					lane.addToLinkId(toLinks.get(toLinks.size() - 1).getLink().getId());
 				}
 			}
-			if (tempDir == 0 || tempDir == 4 || tempDir == -5) { // lane
-																	// directions
-																	// that have
-																	// to lead
-																	// to a
-																	// forward
-																	// link
-																	// (through,
-																	// merge_to_left,
-																	// merge_to_right)
-				// look for the most "forward" link (closest to 180° or pi) and
-				// take it
+			if (tempDir == 0 || tempDir == 4 || tempDir == -5) { // lane directions that have to lead to a forward link (through, merge_to_left,merge_to_right)
+				// look for the most "forward" link (closest to 180° or pi) and take it
 				LinkVector tempLV = toLinks.get(0);
 				double minDiff = PI;
 				for (LinkVector lvec : tempLinks) {
@@ -1584,9 +1591,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	 */
 	private List<LinkVector> orderToLinks(Link link, List<Link> toLinks) {
 		List<LinkVector> toLinkList = new ArrayList<LinkVector>();
-		LinkVector fromLink = new LinkVector(link);
+		LinkVector fromLink = new LinkVector(link, Link.class);
 		for (int i = 0; i < toLinks.size(); i++) {
-			LinkVector toLink = new LinkVector(toLinks.get(i));
+			LinkVector toLink = new LinkVector(toLinks.get(i), Link.class);
 			toLink.calculateRotation(fromLink);
 			toLinkList.add(toLink);
 		}
@@ -1658,12 +1665,14 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		private double y;
 		private double alpha;
 		private double dirAlpha;
+		private Class type;
 
-		public LinkVector(Link link) {
+		public LinkVector(Link link, final Class type) {
 			this.link = link;
 			this.x = this.link.getToNode().getCoord().getX() - link.getFromNode().getCoord().getX();
 			this.y = this.link.getToNode().getCoord().getY() - link.getFromNode().getCoord().getY();
 			this.calculateAlpha();
+			this.type = type;
 		}
 
 		private void calculateAlpha() {
@@ -1677,7 +1686,12 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 
 		public void calculateRotation(LinkVector linkVector) {
-			this.dirAlpha = this.alpha - linkVector.getAlpha() - PI;
+			if(this.type.equals(Link.class)){
+				this.dirAlpha = this.alpha - linkVector.getAlpha() - PI;
+			}
+			if(this.type.equals(Signal.class)){
+				this.dirAlpha = this.alpha - linkVector.getAlpha();
+			}
 			if (this.dirAlpha < 0) {
 				this.dirAlpha += 2 * PI;
 			}
