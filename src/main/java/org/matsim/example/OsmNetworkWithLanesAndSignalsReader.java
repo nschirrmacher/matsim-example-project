@@ -870,10 +870,16 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					}
 					SignalData signal = this.systems.getFactory()
 							.createSignalData(Id.create("Signal" + link.getId() + "." + end, Signal.class));
-					signal.setLinkId(Id.create(link.getId(), Link.class));
+					signal.addLaneId(lane.getId());
 					this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
 					//create Signals per Lane, maybe one left one other
 				}
+			}
+			if(this.systems.getSignalSystemData().containsKey(systemId) && !lanes.getLanesToLinkAssignments().containsKey(link.getId())){
+				SignalData signal = this.systems.getFactory()
+						.createSignalData(Id.create("Signal" + link.getId() + ".single", Signal.class));
+				signal.setLinkId(link.getId());
+				this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
 			}
 		}
 		
@@ -884,16 +890,6 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 
 		// all systems are created
 
-		/*
-		 * this.id = 1; List<Id<SignalSystem>> ids = new
-		 * LinkedList<Id<SignalSystem>>(); for (int i = 1, n = nodes.size(); i <
-		 * n; i++) { //added condition to prevent NullPointerException
-		 * if(this.nodes.get(i) != null){ OsmNode checkedNode =
-		 * this.nodes.get(i); if(checkedNode.used == true &&
-		 * checkedNode.signalized == true){
-		 * createSignalGroupsForSystem(this.network, this.systems,
-		 * checkedNode.id, ids); } } }
-		 */
 		// added settings
 		// **************
 		for (SignalSystemData signalSystem : this.systems.getSignalSystemData().values()) {
@@ -1185,10 +1181,10 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						SignalSystemData system = this.systems.getFactory().createSignalSystemData(systemId);
 						this.systems.getSignalSystemData().put(systemId, system);
 					}
-					SignalData signal = this.systems.getFactory()
-							.createSignalData(Id.create("Signal" + l.getId(), Signal.class));
-					signal.setLinkId(Id.create(l.getId(), Link.class));
-					this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
+//					SignalData signal = this.systems.getFactory()
+//							.createSignalData(Id.create("Signal" + l.getId(), Signal.class));
+//					signal.setLinkId(Id.create(l.getId(), Link.class));
+//					this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
 					/*
 					 * TODO spaeter fuer Lanes hier pro Lane ein Signal
 					 * erstellen, Nils&Theresa Mar'17
@@ -1229,10 +1225,10 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						SignalSystemData system = this.systems.getFactory().createSignalSystemData(systemId);
 						this.systems.getSignalSystemData().put(systemId, system);
 					}
-					SignalData signal = this.systems.getFactory()
-							.createSignalData(Id.create("Signal" + l.getId(), Signal.class));
-					signal.setLinkId(Id.create(l.getId(), Link.class));
-					this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
+//					SignalData signal = this.systems.getFactory()
+//							.createSignalData(Id.create("Signal" + l.getId(), Signal.class));
+//					signal.setLinkId(Id.create(l.getId(), Link.class));
+//					this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
 					/*
 					 * TODO spaeter fuer Lanes hier pro Lane ein Signal
 					 * erstellen, Nils&Theresa Mar'17
@@ -1592,9 +1588,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	 */
 	private List<LinkVector> orderToLinks(Link link, List<Link> toLinks) {
 		List<LinkVector> toLinkList = new ArrayList<LinkVector>();
-		LinkVector fromLink = new LinkVector(link, Link.class);
+		LinkVector fromLink = new LinkVector(link, true);
 		for (int i = 0; i < toLinks.size(); i++) {
-			LinkVector toLink = new LinkVector(toLinks.get(i), Link.class);
+			LinkVector toLink = new LinkVector(toLinks.get(i), true);
 			toLink.calculateRotation(fromLink);
 			toLinkList.add(toLink);
 		}
@@ -1666,14 +1662,14 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		private double y;
 		private double alpha;
 		private double dirAlpha;
-		private Class type;
+		private boolean inverted;
 
-		public LinkVector(Link link, final Class type) {
+		public LinkVector(Link link, final boolean inverted) {
 			this.link = link;
 			this.x = this.link.getToNode().getCoord().getX() - link.getFromNode().getCoord().getX();
 			this.y = this.link.getToNode().getCoord().getY() - link.getFromNode().getCoord().getY();
 			this.calculateAlpha();
-			this.type = type;
+			this.inverted = inverted;
 		}
 
 		private void calculateAlpha() {
@@ -1687,10 +1683,10 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 
 		public void calculateRotation(LinkVector linkVector) {
-			if(this.type.equals(Link.class)){
+			if(this.inverted){
 				this.dirAlpha = this.alpha - linkVector.getAlpha() - PI;
 			}
-			if(this.type.equals(Signal.class)){
+			if(!this.inverted){
 				this.dirAlpha = this.alpha - linkVector.getAlpha();
 			}
 			if (this.dirAlpha < 0) {
