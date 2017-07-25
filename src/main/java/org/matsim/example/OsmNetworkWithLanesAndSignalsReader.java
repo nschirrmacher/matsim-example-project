@@ -134,10 +134,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			TAG_RESTRICTION, TAG_SIGNALS };
 
 	private final static double PI = 3.141592654;
-	private final static int DEFAULT_LANE_OFFSET = 35; // TODO oder einfach die
-														// haelfte der link
-														// laenge
-
+	private final static int DEFAULT_LANE_OFFSET = 35; 
+	
+	
 	private final Map<Long, OsmNode> nodes = new HashMap<Long, OsmNode>();
 	private final Map<Long, OsmWay> ways = new HashMap<Long, OsmWay>();
 	private final Map<Id<Link>, LaneStack> laneStacks = new HashMap<Id<Link>, LaneStack>();
@@ -152,6 +151,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	private boolean scaleMaxSpeed = false;
 
 	private boolean slowButLowMemory = false;
+	
+	private int modeMidLanes = 1;
+	private int modeOutLanes = 1;
 
 	private final SignalSystemsData systems;
 	private final SignalGroupsData groups;
@@ -408,6 +410,11 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	 */
 	public void setMemoryOptimization(final boolean memoryEnabled) {
 		this.slowButLowMemory = memoryEnabled;
+	}
+	
+	public void setModesForDefaultLanes(int modeOutLanes, int modeMidLanes){
+		this.modeOutLanes = modeOutLanes;
+		this.modeMidLanes = modeMidLanes;
 	}
 
 	private void convert() {
@@ -1246,7 +1253,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		//origLane.setCapacityVehiclesPerHour(0);
 		//lanesForLink.addLane(origLane);
 		for (int i = 1; i <= nofLanes; i++) {
-			Lane lane = lanes.getFactory().createLane(Id.create("Lane" + id + "." + i, Lane.class));
+			Lane lane = lanes.getFactory().createLane(Id.create("Lane" + l.getId() + "." + i, Lane.class));
 			if(l.getLength()> 2*DEFAULT_LANE_OFFSET){
 				lane.setStartsAtMeterFromLinkEnd(DEFAULT_LANE_OFFSET);
 			}else{
@@ -1465,11 +1472,44 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			return;
 		}
 		
-		if(toLinks.size() == 2 && straightLink >= 0 && reverseLink >= 0){
+		if(toLinks.size() == 2 && reverseLink >= 0){
 			lanes.getLanesToLinkAssignments().remove(link.getId());
 			return;
 		}
-		if(toLinks.size() > 1){
+		if(lanes.getLanesToLinkAssignments().containsKey(link.getId()) && toLinks.size()>1){
+			
+			if(modeOutLanes == 1 || modeOutLanes == 2){
+				Lane lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
+						.get(Id.create("Lane" + link.getId() + "." + ((int) link.getNumberOfLanes()), Lane.class));
+				if(reverseLink != 0)
+					lane.addToLinkId(toLinks.get(0).getLink().getId());
+				else
+					lane.addToLinkId(toLinks.get(1).getLink().getId());
+				lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
+						.get(Id.create("Lane" + link.getId() + "." + "1", Lane.class));
+				if(reverseLink != -1)
+					lane.addToLinkId(toLinks.get(reverseLink).getLink().getId());
+				if(reverseLink == toLinks.size()-1)
+					lane.addToLinkId(toLinks.get(toLinks.size()-2).getLink().getId());
+				lane.addToLinkId(toLinks.get(toLinks.size()-1).getLink().getId());					
+			}
+			
+			if(modeOutLanes == 2){
+				Lane lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
+						.get(Id.create("Lane" + link.getId() + "." + ((int) link.getNumberOfLanes()), Lane.class));
+				if(reverseLink != 0)
+					lane.addToLinkId(toLinks.get(1).getLink().getId());
+				else if(straightLink != 1)
+					lane.addToLinkId(toLinks.get(2).getLink().getId());
+				lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
+						.get(Id.create("Lane" + link.getId() + "." + "1", Lane.class));				
+				if(straightLink < toLinks.size()-2){
+					if(reverseLink == toLinks.size()-1)
+						lane.addToLinkId(toLinks.get(toLinks.size()-3).getLink().getId());
+					lane.addToLinkId(toLinks.get(toLinks.size()-2).getLink().getId());
+				}
+			}
+			
 			Lane lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
 					.get(Id.create("Lane" + link.getId() + "." + "1", Lane.class));
 			if(reverseLink >= 0)
