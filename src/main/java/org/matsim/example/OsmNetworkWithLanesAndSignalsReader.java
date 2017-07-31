@@ -196,6 +196,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		this.groups = signalsData.getSignalGroupsData();
 		this.control = signalsData.getSignalControlData();
 		this.lanes = lanes;
+		this.setModesForDefaultLanes(3, 2);
 
 		if (useHighwayDefaults) {
 			log.info("Falling back to default values.");
@@ -412,6 +413,24 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		this.slowButLowMemory = memoryEnabled;
 	}
 	
+	/**
+	 * By default, this converter caches a lot of data internally to speed up
+	 * the network generation. This can lead to OutOfMemoryExceptions when
+	 * converting huge osm files. By enabling this memory optimization, the
+	 * converter tries to reduce its memory usage, but will run slower.
+	 *
+	 * @param modeOutLanes
+	 * 			The mode in which ToLinks are determined in case of missing 
+	 * 			lane directions on the "Out"-lanes (farthest left and right lane).
+	 * 			1 : only right/left-turn (and reverse on left lane)
+	 * 			2 : right/left-turn and straight (and reverse on left lane)
+	 *  @param modeMidLanes
+	 *  		The mode in which ToLinks are determined in case of missing 
+	 * 			lane directions on the "Mid"-lanes (all lanes except the farthest 
+	 * 			left and right lane).
+	 * 			1 : only straight
+	 * 			2 : straight, left and right (if existing and not reverse)
+	 */	
 	public void setModesForDefaultLanes(int modeOutLanes, int modeMidLanes){
 		this.modeOutLanes = modeOutLanes;
 		this.modeMidLanes = modeMidLanes;
@@ -837,8 +856,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				} else if (!nodes.get(Long.valueOf(link.getToNode().getId().toString())).restrictions.isEmpty()) {
 					// if there exists an Restriction in the ToNode, we want to
 					// create a Lane to represent the restriction,
-					// as the toLinks cannot be restricted otherwise (as far as I
-					// know)
+					// as the toLinks cannot be restricted otherwise 
 					createLanes(link, lanes, 1, Long.valueOf(link.getId().toString()));
 					List<LinkVector> linkVectors = constructOrderedLinkVectors(link);
 					removeRestrictedLinks(link, linkVectors);
@@ -856,8 +874,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 
 		for (Link link : this.network.getLinks().values()) {
-			if (lanes.getLanesToLinkAssignments().get(link.getId()) != null) {
-				// log.info("Trying to simplify Lanes");
+			if (lanes.getLanesToLinkAssignments().get(link.getId()) != null) {				
 				simplifyLanesAndAddOrigLane(link);
 			}
 			Id<SignalSystem> systemId = Id.create("System" + link.getToNode().getId(), SignalSystem.class);
@@ -1276,40 +1293,38 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	}
 
 	private void simplifyLanesAndAddOrigLane(Link link) {
-		if (lanes.getLanesToLinkAssignments().get(link.getId()).getLanes().size() > 1) {
-			Lane origLane = lanes.getFactory().createLane(Id.create("Lane" + id + ".ol", Lane.class));
-			lanes.getLanesToLinkAssignments().get(link.getId()).addLane(origLane);
-			origLane.setCapacityVehiclesPerHour(0);
-			origLane.setStartsAtMeterFromLinkEnd(link.getLength());
-			origLane.setNumberOfRepresentedLanes(link.getNumberOfLanes());
-			
-			Lane rightLane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
-					.get(Id.create("Lane" + link.getId() + "." + ((int) link.getNumberOfLanes()), Lane.class));
-			for (int i = (int) link.getNumberOfLanes() - 1; i > 0; i--) {
-				Lane leftLane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
-						.get(Id.create("Lane" + link.getId() + "." + i, Lane.class));
-				origLane.addToLaneId(rightLane.getId());
-				origLane.setCapacityVehiclesPerHour(origLane.getCapacityVehiclesPerHour()+rightLane.getCapacityVehiclesPerHour());
-				if (rightLane.getToLinkIds().equals(leftLane.getToLinkIds())) {
-					leftLane.setNumberOfRepresentedLanes(
-							leftLane.getNumberOfRepresentedLanes() + rightLane.getNumberOfRepresentedLanes());
-					leftLane.setCapacityVehiclesPerHour(leftLane.getCapacityVehiclesPerHour()+rightLane.getCapacityVehiclesPerHour());
-					// log.info("Put together Lane " +
-					// leftLane.getId().toString() + " and Lane " +
-					// rightLane.getId().toString());
-					LanesToLinkAssignment20 linkLanes = lanes.getLanesToLinkAssignments().get(link.getId());
-					origLane.getToLaneIds().remove(rightLane.getId());
-					linkLanes.getLanes().remove(rightLane.getId());
-				} else {
-					// log.info("ToLinks are different for Lane " +
-					// leftLane.getId().toString() + " and Lane " +
-					// rightLane.getId().toString());
-				}
-				rightLane = leftLane;
-			}
+		Lane origLane = lanes.getFactory().createLane(Id.create("Lane" + link.getId() + ".ol", Lane.class));
+		lanes.getLanesToLinkAssignments().get(link.getId()).addLane(origLane);
+		origLane.setCapacityVehiclesPerHour(0);
+		origLane.setStartsAtMeterFromLinkEnd(link.getLength());
+		origLane.setNumberOfRepresentedLanes(link.getNumberOfLanes());
+		
+		Lane rightLane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
+				.get(Id.create("Lane" + link.getId() + "." + ((int) link.getNumberOfLanes()), Lane.class));
+		for (int i = (int) link.getNumberOfLanes() - 1; i > 0; i--) {
+			Lane leftLane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
+					.get(Id.create("Lane" + link.getId() + "." + i, Lane.class));
 			origLane.addToLaneId(rightLane.getId());
 			origLane.setCapacityVehiclesPerHour(origLane.getCapacityVehiclesPerHour()+rightLane.getCapacityVehiclesPerHour());
+			if (rightLane.getToLinkIds().equals(leftLane.getToLinkIds())) {
+				leftLane.setNumberOfRepresentedLanes(
+						leftLane.getNumberOfRepresentedLanes() + rightLane.getNumberOfRepresentedLanes());
+				leftLane.setCapacityVehiclesPerHour(leftLane.getCapacityVehiclesPerHour()+rightLane.getCapacityVehiclesPerHour());
+				// log.info("Put together Lane " +
+				// leftLane.getId().toString() + " and Lane " +
+				// rightLane.getId().toString());
+				LanesToLinkAssignment20 linkLanes = lanes.getLanesToLinkAssignments().get(link.getId());
+				origLane.getToLaneIds().remove(rightLane.getId());
+				linkLanes.getLanes().remove(rightLane.getId());
+			} else {
+				// log.info("ToLinks are different for Lane " +
+				// leftLane.getId().toString() + " and Lane " +
+				// rightLane.getId().toString());
+			}
+			rightLane = leftLane;
 		}
+		origLane.addToLaneId(rightLane.getId());
+		origLane.setCapacityVehiclesPerHour(origLane.getCapacityVehiclesPerHour()+rightLane.getCapacityVehiclesPerHour());		
 	}
 /*
 	private Lane createLane(final Link l, final Lanes lanes) {
@@ -1439,12 +1454,15 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		// if a LaneStack exists, fill Lanes with turn:lane informations,
 		// otherwise fill by default
 		Id<Link> id = link.getId();
+		boolean leftLane = false;
 		if (laneStacks.containsKey(id)) {
 			Stack<Stack<Integer>> laneStack = laneStacks.get(id).turnLanes;
 			for (int i = (int) link.getNumberOfLanes(); i > 0; i--) {
 				Lane lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
 						.get(Id.create("Lane" + link.getId() + "." + i, Lane.class));
-				setToLinksForLaneWithTurnLanes(lane, laneStack.pop(), linkVectors);
+				if(laneStack.size() == 1)
+					leftLane = true;
+				setToLinksForLaneWithTurnLanes(lane, laneStack.pop(), linkVectors, leftLane);
 			}
 		} else {
 			setToLinksForLanesDefault(link, linkVectors);
@@ -1456,29 +1474,30 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	public void setToLinksForLanesDefault(Link link, List<LinkVector> toLinks) {
 		int straightLink = 0;
 		int reverseLink = 0;
+		int straightestLink = 0;
 		for(int i = 1; i < toLinks.size(); i++){
 			if(Math.abs(toLinks.get(i).getRotation()-PI) < Math.abs(toLinks.get(straightLink).getRotation()-PI))
 				straightLink = i;
 			if(Math.abs(toLinks.get(i).getRotation()-PI) > Math.abs(toLinks.get(reverseLink).getRotation()-PI))
 				reverseLink = i;
 		}
-		if(toLinks.get(straightLink).getRotation()<5/6*PI || toLinks.get(straightLink).getRotation()>7/6*PI)
+		if(toLinks.get(straightLink).getRotation()<5/6*PI || toLinks.get(straightLink).getRotation()>7/6*PI){
+			straightestLink = straightLink;
 			straightLink = -1;
+		}	
 		if(toLinks.get(reverseLink).getRotation()>1/6*PI && toLinks.get(reverseLink).getRotation()<11/6*PI)
-			reverseLink = -1;	
-		
+			reverseLink = -1;		
 		if (toLinks.size() == 1) {
 			lanes.getLanesToLinkAssignments().remove(link.getId());
 			return;
-		}
-		
+		}		
 		if(toLinks.size() == 2 && reverseLink >= 0){
 			lanes.getLanesToLinkAssignments().remove(link.getId());
 			return;
 		}
-		if(lanes.getLanesToLinkAssignments().containsKey(link.getId()) && toLinks.size()>1){
-			
-			if(modeOutLanes == 1 || modeOutLanes == 2){
+		
+		if(lanes.getLanesToLinkAssignments().containsKey(link.getId()) && toLinks.size()>1){			
+			if(modeOutLanes == 1 || modeOutLanes == 2 || modeOutLanes == 3){
 				Lane lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
 						.get(Id.create("Lane" + link.getId() + "." + ((int) link.getNumberOfLanes()), Lane.class));
 				if(reverseLink != 0)
@@ -1487,66 +1506,100 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					lane.addToLinkId(toLinks.get(1).getLink().getId());
 				lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
 						.get(Id.create("Lane" + link.getId() + "." + "1", Lane.class));
+				lane.setAlignment(2);
 				if(reverseLink != -1)
 					lane.addToLinkId(toLinks.get(reverseLink).getLink().getId());
 				if(reverseLink == toLinks.size()-1)
 					lane.addToLinkId(toLinks.get(toLinks.size()-2).getLink().getId());
-				lane.addToLinkId(toLinks.get(toLinks.size()-1).getLink().getId());					
+				lane.addToLinkId(toLinks.get(toLinks.size()-1).getLink().getId());
+				lane.setAlignment(-2);
 			}
 			
-			if(modeOutLanes == 2){
+			if(modeOutLanes == 2 || modeOutLanes == 3){
 				Lane lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
 						.get(Id.create("Lane" + link.getId() + "." + ((int) link.getNumberOfLanes()), Lane.class));
 				if(reverseLink != 0)
 					lane.addToLinkId(toLinks.get(1).getLink().getId());
 				else if(straightLink != 1)
 					lane.addToLinkId(toLinks.get(2).getLink().getId());
-				lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
-						.get(Id.create("Lane" + link.getId() + "." + "1", Lane.class));				
-				if(straightLink < toLinks.size()-2){
-					if(reverseLink == toLinks.size()-1)
-						lane.addToLinkId(toLinks.get(toLinks.size()-3).getLink().getId());
-					lane.addToLinkId(toLinks.get(toLinks.size()-2).getLink().getId());
+				lane.setAlignment(1);
+				if(modeOutLanes != 3){
+					lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
+							.get(Id.create("Lane" + link.getId() + "." + "1", Lane.class));				
+					if(straightLink < toLinks.size()-2){
+						if(reverseLink == toLinks.size()-1)
+							lane.addToLinkId(toLinks.get(toLinks.size()-3).getLink().getId());
+						lane.addToLinkId(toLinks.get(toLinks.size()-2).getLink().getId());
+					}
+					lane.setAlignment(-1);
 				}
 			}
 			
-			Lane lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
-					.get(Id.create("Lane" + link.getId() + "." + "1", Lane.class));
-			if(reverseLink >= 0)
-				lane.addToLinkId(toLinks.get(reverseLink).getLink().getId());
-			lane.addToLinkId(toLinks.get(toLinks.size() - 1).getLink().getId());
-			for (int i = (int) link.getNumberOfLanes() - 1; i > 1; i--) {
-				lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
-						.get(Id.create("Lane" + link.getId() + "." + i, Lane.class));
-				if(straightLink >= 0)
-					lane.addToLinkId(toLinks.get(straightLink).getLink().getId());
-				else
-					lane.addToLinkId(toLinks.get(0).getLink().getId());
-				//for (int j = 0; j < toLinks.size(); j++) {
-					
-				//}
+			if(modeMidLanes == 1 || modeMidLanes == 2){
+				for (int i = (int) link.getNumberOfLanes() - 1; i > 1; i--) {
+					Lane lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
+							.get(Id.create("Lane" + link.getId() + "." + i, Lane.class));
+					if(straightLink >= 0)
+						lane.addToLinkId(toLinks.get(straightLink).getLink().getId());
+					else
+						lane.addToLinkId(toLinks.get(straightestLink).getLink().getId());
+				}
 			}
-			lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
-					.get(Id.create("Lane" + link.getId() + "." + ((int) link.getNumberOfLanes()), Lane.class));
-			lane.addToLinkId(toLinks.get(0).getLink().getId());
+			
+			if(modeMidLanes == 2){
+				int midLink;
+				if(straightLink >= 0)
+					midLink = straightLink;
+				else
+					midLink = straightestLink;
+				for (int i = (int) link.getNumberOfLanes() - 1; i > 1; i--) {
+					Lane lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
+							.get(Id.create("Lane" + link.getId() + "." + i, Lane.class));
+					if(midLink > 0 && midLink - 1 != reverseLink)
+						lane.addToLinkId(toLinks.get(midLink - 1).getLink().getId());
+					if(midLink < toLinks.size() - 1 && midLink + 1 != reverseLink)
+						lane.addToLinkId(toLinks.get(midLink + 1).getLink().getId());											
+				}
+			}						
 		}
 	}
 
 	// Fills Lanes with turn:lane informations
-	public void setToLinksForLaneWithTurnLanes(Lane lane, Stack<Integer> laneStack, List<LinkVector> toLinks) {
+	public void setToLinksForLaneWithTurnLanes(Lane lane, Stack<Integer> laneStack, List<LinkVector> toLinks, boolean leftLane) {
 		// List<LinkVector> removeLinks = new ArrayList<LinkVector>();
-
+		int alignmentAnte;
+		LinkVector throughLink = toLinks.get(0);	
+		double minDiff = PI;
+		LinkVector reverseLink = toLinks.get(0);
+		double maxDiff = 0;
+		for (LinkVector lvec : toLinks) {
+			double diff = Math.abs(lvec.dirAlpha - PI);
+			if (diff < minDiff) {
+				minDiff = diff;
+				throughLink = lvec;
+			}			
+			if (diff > maxDiff) {
+				maxDiff = diff;
+				reverseLink = lvec;
+			}
+		}
+		if(reverseLink.getRotation() < 11/6*PI && reverseLink.getRotation() > 1/6*PI)
+			reverseLink = null;
+		
 		while (!laneStack.isEmpty()) {
-
+			int it = 1;
 			Integer tempDir = laneStack.pop();
 			List<LinkVector> tempLinks = new ArrayList<LinkVector>();
 			// removeLinks.clear();
 			// log.info("Trying to Fill " + lane.getId().toString() + " with
 			// Direction: " + tempDir + " with #ofToLinks: " + toLinks.size() );
 			if (tempDir == null) { // no direction for lane available
+				//TODO: add modeMidLanes here to??
 				for (LinkVector lvec : toLinks) {
-					lane.addToLinkId(lvec.getLink().getId());
+					if(!lvec.equals(reverseLink))
+						lane.addToLinkId(lvec.getLink().getId());
 				}
+				lane.setAlignment(0);
 				break;
 			}
 			if (tempDir < 0 && tempDir > -5) { // all right directions (right,
@@ -1574,60 +1627,66 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				} else {
 					lane.addToLinkId(toLinks.get(0).getLink().getId());
 				}
+				lane.setAlignment(2);
 			}
-			if (tempDir > 0 && tempDir < 4) { // all "left" directions (left,
+			if (tempDir > 0 && tempDir < 4) { 	// all "left" directions (left,
 												// slight_left,sharp_left)
+				alignmentAnte = lane.getAlignment();
+				if(alignmentAnte == 0 && it == 1)
+					alignmentAnte = -10;
 				for (LinkVector lvec : toLinks) {
 					if (lvec.dirAlpha > 13 * PI / 12)
 						tempLinks.add(lvec);
 				}
-				if (tempLinks.size() == 1) { // if there is just one "left"
+				if (tempLinks.size() == 1) { 	// if there is just one "left"
 												// link, take it
 					lane.addToLinkId(tempLinks.get(0).getLink().getId());
 				} else if (tempLinks.size() == 2) {
 					if (tempDir == 1) { // lane direction: "left"
 						for (LinkVector lvec : tempLinks)
-							lane.addToLinkId(lvec.getLink().getId());
+							if(!lvec.equals(reverseLink))
+								lane.addToLinkId(lvec.getLink().getId());
 					}
-					if (tempDir == 2) { // lane direction: "slight_left"
-						if (tempLinks.get(1).dirAlpha > 3 * PI / 2)
-							lane.addToLinkId(tempLinks.get(1).getLink().getId());
-						else
+					if (tempDir == 2) { // lane direction: "slight_left" FIXME: not perfect yet
+						if (tempLinks.get(1).dirAlpha > 3 * PI / 2 || !tempLinks.get(1).equals(reverseLink))
 							lane.addToLinkId(tempLinks.get(0).getLink().getId());
+						else
+							lane.addToLinkId(tempLinks.get(1).getLink().getId());
 					}
 					if (tempDir == 3) // lane direction: "sharp_left"
 						lane.addToLinkId(tempLinks.get(1).getLink().getId());
 				} else {
-					lane.addToLinkId(toLinks.get(toLinks.size() - 1).getLink().getId());
+					if(toLinks.get(toLinks.size() - 1).equals(reverseLink))
+						lane.addToLinkId(toLinks.get(toLinks.size() - 2).getLink().getId());
+					else
+						lane.addToLinkId(toLinks.get(toLinks.size() - 1).getLink().getId());
 				}
+				if(alignmentAnte == 0)
+					lane.setAlignment(-1);
+				else
+					lane.setAlignment(-2);
 			}
-			if (tempDir == 0 || tempDir == 4 || tempDir == -5) { // lane directions that have to lead to a forward link (through, merge_to_left,merge_to_right)
-				// look for the most "forward" link (closest to 180° or pi) and take it
-				LinkVector tempLV = toLinks.get(0);
-				double minDiff = PI;
-				for (LinkVector lvec : tempLinks) {
-					double diff = Math.abs(lvec.dirAlpha - PI);
-					if (diff < minDiff) {
-						minDiff = diff;
-						tempLV = lvec;
-					}
-				}
-				lane.addToLinkId(tempLV.getLink().getId());
+			if (tempDir == 0 || tempDir == 4 || tempDir == -5) { 	// lane directions that have to lead to a forward link (through, merge_to_left,merge_to_right)
+				alignmentAnte = lane.getAlignment();				// look for the most "forward" link (closest to 180° or pi) and take it	
+				
+				lane.addToLinkId(throughLink.getLink().getId());
+				if(alignmentAnte == 2)
+					lane.setAlignment(1);				
 			}
 			if (tempDir == 5) { // lane direction: "reverse"
 				// look for the most "backward" link (furthest from 180° or pi)
 				// and take it
-				LinkVector tempLV = toLinks.get(0);
-				double maxDiff = 0;
-				for (LinkVector lvec : tempLinks) {
-					double diff = Math.abs(lvec.dirAlpha - PI);
-					if (diff > maxDiff) {
-						maxDiff = diff;
-						tempLV = lvec;
-					}
-				}
-				lane.addToLinkId(tempLV.getLink().getId());
+				alignmentAnte = lane.getAlignment();
+				if(alignmentAnte == 0 && lane.getToLinkIds().isEmpty())
+					alignmentAnte = -10;
+				lane.addToLinkId(reverseLink.getLink().getId());
+				if(alignmentAnte == 0)
+					lane.setAlignment(-1);
+				else
+					lane.setAlignment(-2);
+				
 			}
+			it++;
 		}
 	}
 
