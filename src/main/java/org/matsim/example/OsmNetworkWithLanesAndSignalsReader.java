@@ -62,6 +62,7 @@ import org.matsim.api.core.v01.network.Node;
 import org.matsim.core.api.internal.MatsimSomeReader;
 import org.matsim.core.network.LinkImpl;
 import org.matsim.core.network.NetworkImpl;
+import org.matsim.core.utils.collections.Tuple;
 import org.matsim.core.utils.geometry.CoordUtils;
 import org.matsim.core.utils.geometry.CoordinateTransformation;
 import org.matsim.core.utils.io.MatsimXmlParser;
@@ -914,9 +915,20 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				}
 				
 				if(node.getInLinks().size() == 3){
-					createPlansforThreeWayJunction(node, signalSystem);
-				}
-				
+					boolean twoPhase = true;
+					LinkVector thirdArm = null;
+					List<LinkVector> inLinks = constructOrderedInLinkVectors(node);
+					Tuple<LinkVector, LinkVector> pair = getInLinkPair(inLinks);
+					for(int i = 0; i < inLinks.size(); i++){
+						if(!inLinks.get(i).equals(pair.getFirst()) && !inLinks.get(i).equals(pair.getSecond())){
+							thirdArm = inLinks.get(i);
+							break;
+						}	
+					}
+					if(pair.getFirst().getLink().getNumberOfLanes() + pair.getSecond().getLink().getNumberOfLanes() > 4)
+						twoPhase = false;
+					createPlansforThreeWayJunction(node, signalSystem, pair, thirdArm, twoPhase);
+				}				
 			}
 		}
 		
@@ -936,8 +948,6 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				int cycle = 120;
 
 				SignalUtils.createAndAddSignalGroups4Signals(this.groups, signalSystem);
-				// TODO fuer spaeter: Lane-Infos nutzen um Signals zu gruppieren,
-				// Nils&Theresa Mar'17 */
 
 				SignalSystemControllerData controller = this.control.getFactory()
 						.createSignalSystemControllerData(signalSystem.getId());
@@ -962,8 +972,95 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		this.ways.clear();
 	}
 
-	private void createPlansforThreeWayJunction(Node node, SignalSystemData signalSystem) {
-		
+	private Tuple<LinkVector, LinkVector> getInLinkPair(List<LinkVector> inLinks) {
+		LinkVector first = inLinks.get(0);
+		LinkVector second = inLinks.get(1);
+		double diff = Math.abs(Math.abs(second.getAlpha()-first.getAlpha()) - PI);
+		double otherDiff;
+		for(int i = 0; i < inLinks.size()-1; i++){
+			for( int j = i+1; j < inLinks.size(); j++){
+				otherDiff = Math.abs(Math.abs(inLinks.get(i).getAlpha()-inLinks.get(j).getAlpha()) - PI);
+				if(otherDiff < diff){
+					first = inLinks.get(i);
+					second = inLinks.get(j);
+				}
+			}
+		}
+		Tuple<LinkVector, LinkVector> pair = new Tuple<LinkVector, LinkVector>(first, second);		
+		return pair;
+	}
+
+	private void createPlansforThreeWayJunction(Node node, SignalSystemData signalSystem, Tuple<LinkVector, LinkVector> pair, LinkVector thirdArm, boolean twoPhase) {
+		int cycle = 90;
+		int changeTime = (int) ((pair.getFirst().getLink().getNumberOfLanes() + pair.getSecond().getLink().getNumberOfLanes())/
+				(pair.getFirst().getLink().getNumberOfLanes() + pair.getSecond().getLink().getNumberOfLanes() + thirdArm.getLink().getNumberOfLanes())*cycle);
+		boolean firstIsCritical = false;
+		List<Lane> criticalSignalLanes = new ArrayList<Lane>();
+		if(pair.getFirst().getRotation(thirdArm) > PI)
+			firstIsCritical = true;
+		if(firstIsCritical){
+			for(Lane lane : lanes.getLanesToLinkAssignments().get(pair.getFirst().getLink().getId()).getLanes().values()){
+				if(lane.getAlignment() == -2)
+					criticalSignalLanes.add(lane);
+			}
+		}else{
+			for(Lane lane : lanes.getLanesToLinkAssignments().get(pair.getSecond().getLink().getId()).getLanes().values()){
+				if(lane.getAlignment() == -2)
+					criticalSignalLanes.add(lane);
+			}
+		}
+		if(!twoPhase && !criticalSignalLanes.isEmpty()){
+			//create 3-phase-control
+		}else{
+			SignalSystemControllerData controller = createController(signalSystem);
+			SignalPlanData plan = createPlan(node, cycle);
+			controller.addSignalPlanData(plan);
+			SignalGroupData group = createSignalGroup("1", signalSystem, node);
+			for(SignalData signal : signalSystem.getSignalData().values()){
+				if(signal.getLinkId().equals(pair.getFirst().getLink().getId()) || signal.getLinkId().equals(pair.getSecond().getLink().getId()))
+					group.addSignalId(signal.getId());
+			}
+			SignalGroupSettingsData settings = createSetting(0, changeTime - 5, node, group.getId());
+			plan.addSignalGroupSettings(settings);
+			
+			group = createSignalGroup("2", signalSystem, node);
+			for(SignalData signal : signalSystem.getSignalData().values()){
+				if(signal.getLinkId().equals(thirdArm.getLink().getId()))
+					group.addSignalId(signal.getId());
+			}
+			settings = createSetting(changeTime, cycle - 5, node, group.getId());
+			plan.addSignalGroupSettings(settings);
+			//createSignalGroup();
+		}
+	}
+
+	private SignalGroupSettingsData createSetting(int onset, int dropping, Node node, Id<SignalGroup> id) {
+		SignalGroupSettingsData settings = control.getFactory()
+				.createSignalGroupSettingsData(id);		
+		settings.setOnset(0);
+		settings.setDropping(dropping);
+		return settings;
+	}
+
+	private SignalPlanData createPlan(Node node, int cycle) {
+		SignalPlanData plan = this.control.getFactory().createSignalPlanData(Id.create(node.getId(), SignalPlan.class));
+		plan.setStartTime(0.0);
+		plan.setEndTime(0.0);
+		plan.setCycleTime(cycle);
+		plan.setOffset(0);
+		return plan;
+	}
+
+	private SignalSystemControllerData createController(SignalSystemData signalSystem){
+		SignalSystemControllerData controller = this.control.getFactory()
+				.createSignalSystemControllerData(signalSystem.getId());
+		this.control.addSignalSystemControllerData(controller);
+		return controller;
+	}
+
+	private SignalGroupData createSignalGroup(String groupName, SignalSystemData signalSystem, Node node){
+		SignalGroupData group = this.groups.getFactory().createSignalGroupData(signalSystem.getId(), Id.create("SignalGroup"+node.getId() + "." + groupName, SignalGroup.class));
+		return group;
 	}
 
 	private void createPlansforPedestrianSignal(Node node, SignalSystemData system){
@@ -983,13 +1080,13 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		plan1.setCycleTime(cycle);
 		plan1.setOffset(0);
 		SignalGroupSettingsData settings1 = control.getFactory()
-				.createSignalGroupSettingsData(Id.create("1", SignalGroup.class));
+				.createSignalGroupSettingsData(Id.create("PedestrianSignal."+node.getId(), SignalGroup.class));
 		plan1.addSignalGroupSettings(settings1);
 		settings1.setOnset(0);
 		settings1.setDropping(cycle-15);
 		
 	}
-
+	
 	private void findCloseJunctionNodesWithSignals(OsmNode firstNode, OsmNode node, List<OsmNode> junctionNodes, List<OsmNode> checkedNodes, double distance) {
 		for (OsmWay way : node.ways.values()) {	
 			String oneway = way.tags.get(TAG_ONEWAY);
@@ -1255,7 +1352,6 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 //					signal.setLinkId(Id.create(l.getId(), Link.class));
 //					this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
 					/*
-					 * TODO spaeter fuer Lanes hier pro Lane ein Signal
 					 * erstellen, Nils&Theresa Mar'17
 					 */					
 				}
@@ -1298,8 +1394,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 //							.createSignalData(Id.create("Signal" + l.getId(), Signal.class));
 //					signal.setLinkId(Id.create(l.getId(), Link.class));
 //					this.systems.getSignalSystemData().get(systemId).addSignalData(signal);
-					/*
-					 * TODO spaeter fuer Lanes hier pro Lane ein Signal
+					/*					 
 					 * erstellen, Nils&Theresa Mar'17
 					 */
 				}
@@ -1467,7 +1562,28 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			turnLaneStack.push(tempLane);
 		}
 	}
-
+	
+	private List<LinkVector> constructOrderedInLinkVectors(Node node) {
+		List<Link> toLinks = new ArrayList<Link>();
+		for (Link l : node.getInLinks().values()) {
+			toLinks.add(l);
+		}
+		List<LinkVector> inLinkVectors = orderInLinks(toLinks);
+		return inLinkVectors;
+	}
+	
+	private List<LinkVector> orderInLinks(List<Link> inLinks) {
+		List<LinkVector> inLinkList = new ArrayList<LinkVector>();
+		LinkVector refLink = new LinkVector(inLinks.get(0), false);
+		for (int i = 0; i < inLinks.size(); i++) {
+			LinkVector inLink = new LinkVector(inLinks.get(i), false);
+			inLink.calculateRotation(refLink);
+			inLinkList.add(inLink);
+		}
+		Collections.sort(inLinkList);
+		return inLinkList;
+	}
+	
 	private List<LinkVector> constructOrderedOutLinkVectors(Link fromLink) {
 		List<Link> toLinks = new ArrayList<Link>();
 		for (Link l : fromLink.getToNode().getOutLinks().values()) {
@@ -1479,8 +1595,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 
 	/*
 	 * Fills already created Lanes of a Link with available informations:
-	 * toLinks, ... (more planned). nschirrmacher on 170613 FIXME: toLinks are
-	 * not working properly and create a lot of problems
+	 * toLinks, ... (more planned). nschirrmacher on 170613
 	 */
 	private void fillLanesAndCheckRestrictions(Link link) {
 		// create a List of all toLinks
@@ -1522,9 +1637,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			setToLinksForLanesDefault(link, linkVectors);
 		}
 	}
-
-	//TODO: insert 'lever' to go with different models
-	//important: REMOVE U-turns from all lanes but the left one
+		
 	public void setToLinksForLanesDefault(Link link, List<LinkVector> toLinks) {
 		int straightLink = 0;
 		int reverseLink = 0;
@@ -1774,10 +1887,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						for (LinkVector linkVector : toLinks) {
 							// if (linkVector.getLink() instanceof LinkImpl) {
 							if (Long.valueOf(
-									((LinkImpl) linkVector.getLink()).getOrigId()) == restriction.toRestricted.id) {
-								// fromLink.getToNode().getOutLinks().remove(linkVector.getLink().getId());
-								// FIXME: How do I delete a toLink from one and
-								// only one fromLink?
+									((LinkImpl) linkVector.getLink()).getOrigId()) == restriction.toRestricted.id) {							
 								toLinks.remove(linkVector);
 
 								log.info("'No'-Restriction @ " + fromLink.getId().toString() + " and #Rel "
@@ -1789,13 +1899,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						// log.warn(restriction.id + " has a problem finding to
 						// ID " + restriction.toRestricted.id);
 					} else {
-						for (LinkVector linkVector : toLinks) {
-							// if (linkVector.getLink() instanceof LinkImpl) {
-							// if(((LinkImpl) linkVector.getLink()).getOrigId()
-							// == Long.toString(restriction.toRestricted.id)){
-							// FIXME: Why does the below work but the above not?
-							if (Long.valueOf(
-									((LinkImpl) linkVector.getLink()).getOrigId()) == restriction.toRestricted.id) {
+						for (LinkVector linkVector : toLinks) {							
+							if (Long.valueOf(((LinkImpl) linkVector.getLink()).getOrigId()) == restriction.toRestricted.id) {
 								LinkVector onlyLink = linkVector;
 								toLinks.clear();
 								toLinks.add(onlyLink);
@@ -1863,6 +1968,14 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 
 		public double getRotation() {
 			return this.dirAlpha;
+		}
+		
+		public double getRotation(LinkVector linkVector){
+			double rotation = this.alpha - linkVector.getAlpha();
+			if (rotation < 0) {
+				rotation += 2 * PI;
+			}
+			return rotation;
 		}
 
 		public Link getLink() {
@@ -2128,7 +2241,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					} else if ("way".equals(type)) {
 						if ("from".equals(role)) {
 							this.currentRelation.fromRestricted = this.ways.get(Long.parseLong(atts.getValue("ref")));
-						} else if ("to".equals(role)) { // TODO check 'to'
+						} else if ("to".equals(role)) {
 							this.currentRelation.toRestricted = this.ways.get(Long.parseLong(atts.getValue("ref")));
 
 						}
