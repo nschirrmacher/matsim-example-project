@@ -906,6 +906,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				SignalSystemData signalSystem = this.systems.getSignalSystemData().get(systemId);
 				if(node.getInLinks().size() == 1){
 					log.warn("SignalSystem with just 1 InLink @ Node " + node.getId() + " detected! Sth went wrong!");
+					createSimpleDefaultControllerPlanAndSetting(signalSystem);
 				}
 				
 				//only pedestrian signals are very rare and might not be implemented in OSM if existing
@@ -915,74 +916,245 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				}
 				
 				if(node.getInLinks().size() == 3){
-					boolean twoPhase = true;
 					LinkVector thirdArm = null;
-					List<LinkVector> inLinks = constructOrderedInLinkVectors(node);
+					List<LinkVector> inLinks = constructInLinkVectors(node);
 					Tuple<LinkVector, LinkVector> pair = getInLinkPair(inLinks);
 					for(int i = 0; i < inLinks.size(); i++){
 						if(!inLinks.get(i).equals(pair.getFirst()) && !inLinks.get(i).equals(pair.getSecond())){
 							thirdArm = inLinks.get(i);
 							break;
 						}	
+					}					
+					createPlansforThreeWayJunction(node, signalSystem, pair, thirdArm);
+					log.info("3-Way-Signals created");
+				}
+				
+				if(node.getInLinks().size() == 4){
+					List<LinkVector> inLinks = constructInLinkVectors(node);
+					Tuple<LinkVector, LinkVector> firstPair = getInLinkPair(inLinks);
+					LinkVector first = null;
+					boolean firstIsEmpty = true;
+					LinkVector second = null;
+					for(int i = 0; i < inLinks.size(); i++){
+						if(firstIsEmpty){
+							if(!inLinks.get(i).equals(firstPair.getFirst()) && !inLinks.get(i).equals(firstPair.getSecond())){
+								first = inLinks.get(i);
+								firstIsEmpty = false;
+							}
+						}else{
+							if(!inLinks.get(i).equals(firstPair.getFirst()) && !inLinks.get(i).equals(firstPair.getSecond())){
+								second = inLinks.get(i);
+							}
+						}
+						
 					}
-					if(pair.getFirst().getLink().getNumberOfLanes() + pair.getSecond().getLink().getNumberOfLanes() > 4)
-						twoPhase = false;
-					createPlansforThreeWayJunction(node, signalSystem, pair, thirdArm, twoPhase);
-				}				
+					Tuple<LinkVector, LinkVector> secondPair = new Tuple<LinkVector, LinkVector>(first, second);
+					createPlansForFourWayJunction(node, signalSystem, firstPair, secondPair);
+				}
+				
+				if(node.getInLinks().size() > 4){
+					createSimpleDefaultControllerPlanAndSetting(signalSystem);
+				}
 			}
 		}
 		
-		for(SignalSystemData signalSystem : this.systems.getSignalSystemData().values()){
-			//SignalData signal = this.systems.getFactory()
-			//		.createSignalData(Id.create("Signal" + link.getId(), Signal.class));
-		}
-
-		// all systems are created
-
-		// added settings
-		// **************
-		for (SignalSystemData signalSystem : this.systems.getSignalSystemData().values()) {
-			if(!this.control.getSignalSystemControllerDataBySystemId().containsKey(signalSystem)){
-					
-					
-				int cycle = 120;
-
-				SignalUtils.createAndAddSignalGroups4Signals(this.groups, signalSystem);
-
-				SignalSystemControllerData controller = this.control.getFactory()
-						.createSignalSystemControllerData(signalSystem.getId());
-				this.control.addSignalSystemControllerData(controller);
-				controller.setControllerIdentifier(DefaultPlanbasedSignalSystemController.IDENTIFIER);
-				SignalPlanData plan1 = this.control.getFactory().createSignalPlanData(Id.create("1", SignalPlan.class));
-				controller.addSignalPlanData(plan1);
-				plan1.setStartTime(0.0);
-				plan1.setEndTime(0.0);
-				plan1.setCycleTime(cycle);
-				plan1.setOffset(0);
-				SignalGroupSettingsData settings1 = control.getFactory()
-						.createSignalGroupSettingsData(Id.create("1", SignalGroup.class));
-				plan1.addSignalGroupSettings(settings1);
-				settings1.setOnset(0);
-				settings1.setDropping(55);
-			}
-		}
-
-		// free up memory
 		this.nodes.clear();
 		this.ways.clear();
+	}
+	
+	private void createPlansForFourWayJunction(Node node, SignalSystemData signalSystem, Tuple<LinkVector, LinkVector> firstPair, Tuple<LinkVector, LinkVector> secondPair) {
+		int groupNumber = 1;
+		int cycle = 90;
+		double lanesFirst = (firstPair.getFirst().getLink().getNumberOfLanes() + firstPair.getSecond().getLink().getNumberOfLanes())/2;
+		double lanesSecond = (secondPair.getFirst().getLink().getNumberOfLanes() + secondPair.getSecond().getLink().getNumberOfLanes())/2;
+		int changeTime = (int) ((lanesFirst)/(lanesFirst+lanesSecond)*cycle);
+		if(changeTime < 30)
+			changeTime = 30;
+		if(changeTime > 60)
+			changeTime = 60;
+		boolean twoPhaseFirst = false;
+		boolean twoPhaseSecond = false;
+		if(firstPair.getFirst().getLink().getNumberOfLanes() + firstPair.getSecond().getLink().getNumberOfLanes() > 4)
+			twoPhaseFirst = true;
+		if(secondPair.getFirst().getLink().getNumberOfLanes() + secondPair.getSecond().getLink().getNumberOfLanes() > 4)
+			twoPhaseSecond = true;
+		List<Lane> criticalSignalLanesFirst = new ArrayList<Lane>();
+		if(twoPhaseFirst){
+			findTwoPhaseSignalLanes(firstPair, criticalSignalLanesFirst);
+		}
+		if(criticalSignalLanesFirst.isEmpty())
+			twoPhaseFirst = false;
+		List<Lane> criticalSignalLanesSecond = new ArrayList<Lane>();
+		if(twoPhaseSecond){
+			findTwoPhaseSignalLanes(secondPair, criticalSignalLanesSecond);
+		}
+		if(criticalSignalLanesSecond.isEmpty())
+			twoPhaseSecond = false;
+		
+		SignalSystemControllerData controller = createController(signalSystem);
+		SignalPlanData plan = createPlan(node, cycle);
+		controller.addSignalPlanData(plan);
+		if(twoPhaseFirst){
+			SignalGroupData group = createSignalGroup(groupNumber, signalSystem, node);
+			groupNumber++;
+			for(SignalData signal : signalSystem.getSignalData().values()){
+				if(signal.getLinkId().equals(firstPair.getFirst().getLink().getId()) || signal.getLinkId().equals(firstPair.getSecond().getLink().getId())){
+					for(int i = 0; i < criticalSignalLanesFirst.size(); i++){
+						if(!signal.getLaneIds().contains(criticalSignalLanesFirst.get(i)))
+							group.addSignalId(signal.getId());
+					}
+				}					
+			}
+			SignalGroupSettingsData settings = createSetting(0, changeTime - 20, node, group.getId());
+			plan.addSignalGroupSettings(settings);
+			
+			group = createSignalGroup(groupNumber, signalSystem, node);
+			groupNumber++;
+			for(SignalData signal : signalSystem.getSignalData().values()){
+				if(signal.getLinkId().equals(firstPair.getFirst().getLink().getId()) || signal.getLinkId().equals(firstPair.getSecond().getLink().getId())){
+					for(int i = 0; i < criticalSignalLanesFirst.size(); i++){
+						if(signal.getLaneIds().contains(criticalSignalLanesFirst.get(i)))
+							group.addSignalId(signal.getId());
+					}
+				}					
+			}
+			settings = createSetting(changeTime - 15,changeTime - 5, node, group.getId());
+			plan.addSignalGroupSettings(settings);						
+		}else{
+			SignalGroupData group = createSignalGroup(groupNumber, signalSystem, node);
+			groupNumber++;
+			for(SignalData signal : signalSystem.getSignalData().values()){
+				if(signal.getLinkId().equals(firstPair.getFirst().getLink().getId()) || signal.getLinkId().equals(firstPair.getSecond().getLink().getId())){
+					group.addSignalId(signal.getId());					
+				}					
+			}
+			SignalGroupSettingsData settings = createSetting(0, changeTime - 5, node, group.getId());
+			plan.addSignalGroupSettings(settings);
+		}
+		
+		if(twoPhaseSecond){
+			SignalGroupData group = createSignalGroup(groupNumber, signalSystem, node);
+			groupNumber++;
+			for(SignalData signal : signalSystem.getSignalData().values()){
+				if(signal.getLinkId().equals(secondPair.getFirst().getLink().getId()) || signal.getLinkId().equals(secondPair.getSecond().getLink().getId())){
+					for(int i = 0; i < criticalSignalLanesSecond.size(); i++){
+						if(!signal.getLaneIds().contains(criticalSignalLanesSecond.get(i)))
+							group.addSignalId(signal.getId());
+					}
+				}					
+			}
+			SignalGroupSettingsData settings = createSetting(changeTime, cycle - 20, node, group.getId());
+			plan.addSignalGroupSettings(settings);
+			
+			group = createSignalGroup(groupNumber, signalSystem, node);
+			groupNumber++;
+			for(SignalData signal : signalSystem.getSignalData().values()){
+				if(signal.getLinkId().equals(secondPair.getFirst().getLink().getId()) || signal.getLinkId().equals(secondPair.getSecond().getLink().getId())){
+					for(int i = 0; i < criticalSignalLanesSecond.size(); i++){
+						if(signal.getLaneIds().contains(criticalSignalLanesSecond.get(i)))
+							group.addSignalId(signal.getId());
+					}
+				}					
+			}
+			settings = createSetting(cycle - 15, cycle - 5, node, group.getId());
+			plan.addSignalGroupSettings(settings);						
+		}else{
+			SignalGroupData group = createSignalGroup(groupNumber, signalSystem, node);
+			groupNumber++;
+			for(SignalData signal : signalSystem.getSignalData().values()){
+				if(signal.getLinkId().equals(secondPair.getFirst().getLink().getId()) || signal.getLinkId().equals(secondPair.getSecond().getLink().getId())){
+					group.addSignalId(signal.getId());					
+				}					
+			}
+			SignalGroupSettingsData settings = createSetting(changeTime, cycle - 5, node, group.getId());
+			plan.addSignalGroupSettings(settings);
+		}		
+	}
+	
+	private void createPlansforThreeWayJunction(Node node, SignalSystemData signalSystem, Tuple<LinkVector, LinkVector> pair, LinkVector thirdArm) {
+		int groupNumber = 1;
+		int cycle = 90;
+		boolean twoPhase = false;
+		double lanesPair = (pair.getFirst().getLink().getNumberOfLanes() + pair.getSecond().getLink().getNumberOfLanes())/2;
+		int changeTime = (int) ((lanesPair)/(lanesPair + thirdArm.getLink().getNumberOfLanes())*cycle);
+		boolean firstIsCritical = false;		
+		if(pair.getFirst().getLink().getNumberOfLanes() + pair.getSecond().getLink().getNumberOfLanes() > 4)
+			twoPhase = true;
+		List<Lane> criticalSignalLanes = new ArrayList<Lane>();
+		if(pair.getFirst().getRotationToOtherInLink(thirdArm) > PI)
+			firstIsCritical = true;
+		if(firstIsCritical && lanes.getLanesToLinkAssignments().containsKey(pair.getFirst().getLink().getId())){
+			for(Lane lane : lanes.getLanesToLinkAssignments().get(pair.getFirst().getLink().getId()).getLanes().values()){
+				if(lane.getAlignment() == -2)
+					criticalSignalLanes.add(lane);
+			}
+		}else if(lanes.getLanesToLinkAssignments().containsKey(pair.getSecond().getLink().getId())){
+			for(Lane lane : lanes.getLanesToLinkAssignments().get(pair.getSecond().getLink().getId()).getLanes().values()){
+				if(lane.getAlignment() == -2)
+					criticalSignalLanes.add(lane);
+			}
+		}
+		
+		SignalSystemControllerData controller = createController(signalSystem);
+		SignalPlanData plan = createPlan(node, cycle);
+		controller.addSignalPlanData(plan);
+		SignalGroupData group = createSignalGroup(groupNumber, signalSystem, node);
+		groupNumber++;
+		SignalGroupSettingsData settings = null;
+		if(!twoPhase && !criticalSignalLanes.isEmpty()){						
+			for(SignalData signal : signalSystem.getSignalData().values()){
+				if(signal.getLinkId().equals(pair.getFirst().getLink().getId()) || signal.getLinkId().equals(pair.getSecond().getLink().getId())){
+					for(int i = 0; i < criticalSignalLanes.size(); i++){
+						if(!signal.getLaneIds().contains(criticalSignalLanes.get(i)))
+							group.addSignalId(signal.getId());
+					}
+				}					
+			}
+			settings = createSetting(0, changeTime - 20, node, group.getId());
+			plan.addSignalGroupSettings(settings);
+			
+			group = createSignalGroup(groupNumber, signalSystem, node);
+			groupNumber++;
+			for(SignalData signal : signalSystem.getSignalData().values()){
+				if(signal.getLinkId().equals(pair.getFirst().getLink().getId()) || signal.getLinkId().equals(pair.getSecond().getLink().getId())){
+					for(int i = 0; i < criticalSignalLanes.size(); i++){
+						if(signal.getLaneIds().contains(criticalSignalLanes.get(i)))
+							group.addSignalId(signal.getId());
+					}
+				}					
+			}
+			settings = createSetting(changeTime - 15,changeTime - 5, node, group.getId());
+			plan.addSignalGroupSettings(settings);
+		}else{					
+			for(SignalData signal : signalSystem.getSignalData().values()){
+				if(signal.getLinkId().equals(pair.getFirst().getLink().getId()) || signal.getLinkId().equals(pair.getSecond().getLink().getId()))
+					group.addSignalId(signal.getId());
+			}
+			settings = createSetting(0, changeTime - 5, node, group.getId());
+			plan.addSignalGroupSettings(settings);
+		}				
+		group = createSignalGroup(groupNumber, signalSystem, node);
+		groupNumber++;
+		for(SignalData signal : signalSystem.getSignalData().values()){
+			if(signal.getLinkId().equals(thirdArm.getLink().getId()))
+				group.addSignalId(signal.getId());
+		}
+		settings = createSetting(changeTime, cycle - 5, node, group.getId());
+		plan.addSignalGroupSettings(settings);					
 	}
 
 	private Tuple<LinkVector, LinkVector> getInLinkPair(List<LinkVector> inLinks) {
 		LinkVector first = inLinks.get(0);
 		LinkVector second = inLinks.get(1);
-		double diff = Math.abs(Math.abs(second.getAlpha()-first.getAlpha()) - PI);
+		double diff = Math.abs(first.getRotationToOtherInLink(second) - PI);
 		double otherDiff;
 		for(int i = 0; i < inLinks.size()-1; i++){
 			for( int j = i+1; j < inLinks.size(); j++){
-				otherDiff = Math.abs(Math.abs(inLinks.get(i).getAlpha()-inLinks.get(j).getAlpha()) - PI);
+				otherDiff = Math.abs(inLinks.get(i).getRotationToOtherInLink(inLinks.get(j)) - PI);
 				if(otherDiff < diff){
 					first = inLinks.get(i);
 					second = inLinks.get(j);
+					diff = otherDiff;
 				}
 			}
 		}
@@ -990,54 +1162,10 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		return pair;
 	}
 
-	private void createPlansforThreeWayJunction(Node node, SignalSystemData signalSystem, Tuple<LinkVector, LinkVector> pair, LinkVector thirdArm, boolean twoPhase) {
-		int cycle = 90;
-		int changeTime = (int) ((pair.getFirst().getLink().getNumberOfLanes() + pair.getSecond().getLink().getNumberOfLanes())/
-				(pair.getFirst().getLink().getNumberOfLanes() + pair.getSecond().getLink().getNumberOfLanes() + thirdArm.getLink().getNumberOfLanes())*cycle);
-		boolean firstIsCritical = false;
-		List<Lane> criticalSignalLanes = new ArrayList<Lane>();
-		if(pair.getFirst().getRotation(thirdArm) > PI)
-			firstIsCritical = true;
-		if(firstIsCritical){
-			for(Lane lane : lanes.getLanesToLinkAssignments().get(pair.getFirst().getLink().getId()).getLanes().values()){
-				if(lane.getAlignment() == -2)
-					criticalSignalLanes.add(lane);
-			}
-		}else{
-			for(Lane lane : lanes.getLanesToLinkAssignments().get(pair.getSecond().getLink().getId()).getLanes().values()){
-				if(lane.getAlignment() == -2)
-					criticalSignalLanes.add(lane);
-			}
-		}
-		if(!twoPhase && !criticalSignalLanes.isEmpty()){
-			//create 3-phase-control
-		}else{
-			SignalSystemControllerData controller = createController(signalSystem);
-			SignalPlanData plan = createPlan(node, cycle);
-			controller.addSignalPlanData(plan);
-			SignalGroupData group = createSignalGroup("1", signalSystem, node);
-			for(SignalData signal : signalSystem.getSignalData().values()){
-				if(signal.getLinkId().equals(pair.getFirst().getLink().getId()) || signal.getLinkId().equals(pair.getSecond().getLink().getId()))
-					group.addSignalId(signal.getId());
-			}
-			SignalGroupSettingsData settings = createSetting(0, changeTime - 5, node, group.getId());
-			plan.addSignalGroupSettings(settings);
-			
-			group = createSignalGroup("2", signalSystem, node);
-			for(SignalData signal : signalSystem.getSignalData().values()){
-				if(signal.getLinkId().equals(thirdArm.getLink().getId()))
-					group.addSignalId(signal.getId());
-			}
-			settings = createSetting(changeTime, cycle - 5, node, group.getId());
-			plan.addSignalGroupSettings(settings);
-			//createSignalGroup();
-		}
-	}
-
 	private SignalGroupSettingsData createSetting(int onset, int dropping, Node node, Id<SignalGroup> id) {
 		SignalGroupSettingsData settings = control.getFactory()
 				.createSignalGroupSettingsData(id);		
-		settings.setOnset(0);
+		settings.setOnset(onset);
 		settings.setDropping(dropping);
 		return settings;
 	}
@@ -1055,11 +1183,12 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		SignalSystemControllerData controller = this.control.getFactory()
 				.createSignalSystemControllerData(signalSystem.getId());
 		this.control.addSignalSystemControllerData(controller);
+		controller.setControllerIdentifier(DefaultPlanbasedSignalSystemController.IDENTIFIER);
 		return controller;
 	}
 
-	private SignalGroupData createSignalGroup(String groupName, SignalSystemData signalSystem, Node node){
-		SignalGroupData group = this.groups.getFactory().createSignalGroupData(signalSystem.getId(), Id.create("SignalGroup"+node.getId() + "." + groupName, SignalGroup.class));
+	private SignalGroupData createSignalGroup(int groupNumber, SignalSystemData signalSystem, Node node){
+		SignalGroupData group = this.groups.getFactory().createSignalGroupData(signalSystem.getId(), Id.create("SignalGroup"+node.getId() + "." + groupNumber, SignalGroup.class));
 		return group;
 	}
 
@@ -1087,6 +1216,44 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		
 	}
 	
+	private void createSimpleDefaultControllerPlanAndSetting(SignalSystemData signalSystem) {
+							
+		int cycle = 120;
+	
+		SignalUtils.createAndAddSignalGroups4Signals(this.groups, signalSystem);
+		SignalSystemControllerData controller = this.control.getFactory()
+				.createSignalSystemControllerData(signalSystem.getId());
+		this.control.addSignalSystemControllerData(controller);
+		controller.setControllerIdentifier(DefaultPlanbasedSignalSystemController.IDENTIFIER);
+		SignalPlanData plan1 = this.control.getFactory().createSignalPlanData(Id.create("1", SignalPlan.class));
+		controller.addSignalPlanData(plan1);
+		plan1.setStartTime(0.0);
+		plan1.setEndTime(0.0);
+		plan1.setCycleTime(cycle);
+		plan1.setOffset(0);
+		SignalGroupSettingsData settings1 = control.getFactory()
+				.createSignalGroupSettingsData(Id.create("1", SignalGroup.class));
+		plan1.addSignalGroupSettings(settings1);
+		settings1.setOnset(0);
+		settings1.setDropping(55);
+		
+	}
+
+	private void findTwoPhaseSignalLanes(Tuple<LinkVector, LinkVector> pair, List<Lane> criticalSignalLanes){
+		if(lanes.getLanesToLinkAssignments().containsKey(pair.getFirst().getLink().getId())){
+			for(Lane lane : lanes.getLanesToLinkAssignments().get(pair.getFirst().getLink().getId()).getLanes().values()){
+				if(lane.getAlignment() == -2)
+					criticalSignalLanes.add(lane);
+			}
+		}
+		if(lanes.getLanesToLinkAssignments().containsKey(pair.getSecond().getLink().getId())){
+			for(Lane lane : lanes.getLanesToLinkAssignments().get(pair.getSecond().getLink().getId()).getLanes().values()){
+				if(lane.getAlignment() == -2)
+					criticalSignalLanes.add(lane);
+			}
+		}
+	}
+
 	private void findCloseJunctionNodesWithSignals(OsmNode firstNode, OsmNode node, List<OsmNode> junctionNodes, List<OsmNode> checkedNodes, double distance) {
 		for (OsmWay way : node.ways.values()) {	
 			String oneway = way.tags.get(TAG_ONEWAY);
@@ -1563,27 +1730,19 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 	}
 	
-	private List<LinkVector> constructOrderedInLinkVectors(Node node) {
-		List<Link> toLinks = new ArrayList<Link>();
+	private List<LinkVector> constructInLinkVectors(Node node) {
+		List<Link> inLinks = new ArrayList<Link>();
 		for (Link l : node.getInLinks().values()) {
-			toLinks.add(l);
+			inLinks.add(l);
 		}
-		List<LinkVector> inLinkVectors = orderInLinks(toLinks);
-		return inLinkVectors;
-	}
-	
-	private List<LinkVector> orderInLinks(List<Link> inLinks) {
-		List<LinkVector> inLinkList = new ArrayList<LinkVector>();
-		LinkVector refLink = new LinkVector(inLinks.get(0), false);
+		List<LinkVector> inLinkVectors = new ArrayList<LinkVector>();
 		for (int i = 0; i < inLinks.size(); i++) {
 			LinkVector inLink = new LinkVector(inLinks.get(i), false);
-			inLink.calculateRotation(refLink);
-			inLinkList.add(inLink);
+			inLinkVectors.add(inLink);
 		}
-		Collections.sort(inLinkList);
-		return inLinkList;
+		return inLinkVectors;
 	}
-	
+			
 	private List<LinkVector> constructOrderedOutLinkVectors(Link fromLink) {
 		List<Link> toLinks = new ArrayList<Link>();
 		for (Link l : fromLink.getToNode().getOutLinks().values()) {
@@ -1923,7 +2082,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 	}
 
-	private class LinkVector implements Comparable<LinkVector> {
+	public class LinkVector implements Comparable<LinkVector> {
 		private Link link;
 		private double x;
 		private double y;
@@ -1970,8 +2129,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			return this.dirAlpha;
 		}
 		
-		public double getRotation(LinkVector linkVector){
-			double rotation = this.alpha - linkVector.getAlpha();
+		public double getRotationToOtherInLink(LinkVector linkVector){
+			double rotation = linkVector.getAlpha() - this.alpha;
 			if (rotation < 0) {
 				rotation += 2 * PI;
 			}
