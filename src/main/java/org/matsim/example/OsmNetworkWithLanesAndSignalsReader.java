@@ -953,6 +953,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				}
 				
 				if(node.getInLinks().size() > 4){
+					//is it even possible?
 					createSimpleDefaultControllerPlanAndSetting(signalSystem);
 				}
 			}
