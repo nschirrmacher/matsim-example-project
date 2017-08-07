@@ -972,35 +972,36 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		SignalPlanData plan = createPlan(node, cycle);
 		controller.addSignalPlanData(plan);
 		SignalGroupData group = createSignalGroup(groupNumber, signalSystem, node);
-		groupNumber++;
 		SignalGroupSettingsData settings = null;
 		if(twoPhaseFirst){			
 			for(SignalData signal : signalSystem.getSignalData().values()){
 				if(signal.getLinkId().equals(firstPair.getFirst().getLink().getId()) || signal.getLinkId().equals(firstPair.getSecond().getLink().getId())){
 					for(int i = 0; i < criticalSignalLanesFirst.size(); i++){
-						if(!signal.getLaneIds().contains(criticalSignalLanesFirst.get(i)))
+						if(!signal.getLaneIds().contains(criticalSignalLanesFirst.get(i).getId()))
 							group.addSignalId(signal.getId());
 					}
 				}					
 			}
 			settings = createSetting(0, changeTime - 20, node, group.getId());
 			plan.addSignalGroupSettings(settings);
+			groups.addSignalGroupData(group);
+			groupNumber++;
 			
 			group = createSignalGroup(groupNumber, signalSystem, node);
-			groupNumber++;
 			for(SignalData signal : signalSystem.getSignalData().values()){
 				if(signal.getLinkId().equals(firstPair.getFirst().getLink().getId()) || signal.getLinkId().equals(firstPair.getSecond().getLink().getId())){
 					for(int i = 0; i < criticalSignalLanesFirst.size(); i++){
-						if(signal.getLaneIds().contains(criticalSignalLanesFirst.get(i)))
+						if(signal.getLaneIds().contains(criticalSignalLanesFirst.get(i).getId()))
 							group.addSignalId(signal.getId());
 					}
 				}					
 			}
 			settings = createSetting(changeTime - 15,changeTime - 5, node, group.getId());
-			plan.addSignalGroupSettings(settings);						
-		}else{
-			group = createSignalGroup(groupNumber, signalSystem, node);
+			plan.addSignalGroupSettings(settings);
+			groups.addSignalGroupData(group);
 			groupNumber++;
+		}else{
+			group = createSignalGroup(groupNumber, signalSystem, node);			
 			for(SignalData signal : signalSystem.getSignalData().values()){
 				if(signal.getLinkId().equals(firstPair.getFirst().getLink().getId()) || signal.getLinkId().equals(firstPair.getSecond().getLink().getId())){
 					group.addSignalId(signal.getId());					
@@ -1008,37 +1009,40 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			}
 			settings = createSetting(0, changeTime - 5, node, group.getId());
 			plan.addSignalGroupSettings(settings);
+			groups.addSignalGroupData(group);
+			groupNumber++;
 		}
 		
 		if(twoPhaseSecond){
-			group = createSignalGroup(groupNumber, signalSystem, node);
-			groupNumber++;
+			group = createSignalGroup(groupNumber, signalSystem, node);			
 			for(SignalData signal : signalSystem.getSignalData().values()){
 				if(signal.getLinkId().equals(secondPair.getFirst().getLink().getId()) || signal.getLinkId().equals(secondPair.getSecond().getLink().getId())){
 					for(int i = 0; i < criticalSignalLanesSecond.size(); i++){
-						if(!signal.getLaneIds().contains(criticalSignalLanesSecond.get(i)))
+						if(!signal.getLaneIds().contains(criticalSignalLanesSecond.get(i).getId()))
 							group.addSignalId(signal.getId());
 					}
 				}					
 			}
 			settings = createSetting(changeTime, cycle - 20, node, group.getId());
 			plan.addSignalGroupSettings(settings);
+			groups.addSignalGroupData(group);
+			groupNumber++;
 			
 			group = createSignalGroup(groupNumber, signalSystem, node);
-			groupNumber++;
 			for(SignalData signal : signalSystem.getSignalData().values()){
 				if(signal.getLinkId().equals(secondPair.getFirst().getLink().getId()) || signal.getLinkId().equals(secondPair.getSecond().getLink().getId())){
 					for(int i = 0; i < criticalSignalLanesSecond.size(); i++){
-						if(signal.getLaneIds().contains(criticalSignalLanesSecond.get(i)))
+						if(signal.getLaneIds().contains(criticalSignalLanesSecond.get(i).getId()))
 							group.addSignalId(signal.getId());
 					}
 				}					
 			}
 			settings = createSetting(cycle - 15, cycle - 5, node, group.getId());
-			plan.addSignalGroupSettings(settings);						
+			plan.addSignalGroupSettings(settings);
+			groups.addSignalGroupData(group);
+			groupNumber++;
 		}else{
 			group = createSignalGroup(groupNumber, signalSystem, node);
-			groupNumber++;
 			for(SignalData signal : signalSystem.getSignalData().values()){
 				if(signal.getLinkId().equals(secondPair.getFirst().getLink().getId()) || signal.getLinkId().equals(secondPair.getSecond().getLink().getId())){
 					group.addSignalId(signal.getId());					
@@ -1046,6 +1050,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			}
 			settings = createSetting(changeTime, cycle - 5, node, group.getId());
 			plan.addSignalGroupSettings(settings);
+			groups.addSignalGroupData(group);
 		}		
 	}
 	
@@ -1077,32 +1082,34 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		SignalPlanData plan = createPlan(node, cycle);
 		controller.addSignalPlanData(plan);
 		SignalGroupData group = createSignalGroup(groupNumber, signalSystem, node);
-		groupNumber++;
 		SignalGroupSettingsData settings = null;
 		if(!twoPhase && !criticalSignalLanes.isEmpty()){						
 			for(SignalData signal : signalSystem.getSignalData().values()){
 				if(signal.getLinkId().equals(pair.getFirst().getLink().getId()) || signal.getLinkId().equals(pair.getSecond().getLink().getId())){
 					for(int i = 0; i < criticalSignalLanes.size(); i++){
-						if(!signal.getLaneIds().contains(criticalSignalLanes.get(i)))
+						if(!signal.getLaneIds().contains(criticalSignalLanes.get(i).getId()))
 							group.addSignalId(signal.getId());
 					}
 				}					
 			}
 			settings = createSetting(0, changeTime - 20, node, group.getId());
 			plan.addSignalGroupSettings(settings);
+			groups.addSignalGroupData(group);
+			groupNumber++;
 			
 			group = createSignalGroup(groupNumber, signalSystem, node);
-			groupNumber++;
 			for(SignalData signal : signalSystem.getSignalData().values()){
 				if(signal.getLinkId().equals(pair.getFirst().getLink().getId()) || signal.getLinkId().equals(pair.getSecond().getLink().getId())){
 					for(int i = 0; i < criticalSignalLanes.size(); i++){
-						if(signal.getLaneIds().contains(criticalSignalLanes.get(i)))
+						if(signal.getLaneIds().contains(criticalSignalLanes.get(i).getId()))
 							group.addSignalId(signal.getId());
 					}
 				}					
 			}
 			settings = createSetting(changeTime - 15,changeTime - 5, node, group.getId());
 			plan.addSignalGroupSettings(settings);
+			groups.addSignalGroupData(group);
+			groupNumber++;
 		}else{					
 			for(SignalData signal : signalSystem.getSignalData().values()){
 				if(signal.getLinkId().equals(pair.getFirst().getLink().getId()) || signal.getLinkId().equals(pair.getSecond().getLink().getId()))
@@ -1110,15 +1117,17 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			}
 			settings = createSetting(0, changeTime - 5, node, group.getId());
 			plan.addSignalGroupSettings(settings);
+			groups.addSignalGroupData(group);
+			groupNumber++;
 		}				
 		group = createSignalGroup(groupNumber, signalSystem, node);
-		groupNumber++;
 		for(SignalData signal : signalSystem.getSignalData().values()){
 			if(signal.getLinkId().equals(thirdArm.getLink().getId()))
 				group.addSignalId(signal.getId());
 		}
 		settings = createSetting(changeTime, cycle - 5, node, group.getId());
-		plan.addSignalGroupSettings(settings);					
+		plan.addSignalGroupSettings(settings);
+		groups.addSignalGroupData(group);
 	}
 
 	private Tuple<LinkVector, LinkVector> getInLinkPair(List<LinkVector> inLinks) {
@@ -1180,17 +1189,18 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				.createSignalSystemControllerData(system.getId());
 		this.control.addSignalSystemControllerData(controller);
 		controller.setControllerIdentifier(DefaultPlanbasedSignalSystemController.IDENTIFIER);
-		SignalPlanData plan1 = this.control.getFactory().createSignalPlanData(Id.create("Pedestrian", SignalPlan.class));
-		controller.addSignalPlanData(plan1);
-		plan1.setStartTime(0.0);
-		plan1.setEndTime(0.0);
-		plan1.setCycleTime(cycle);
-		plan1.setOffset(0);
-		SignalGroupSettingsData settings1 = control.getFactory()
+		SignalPlanData plan = this.control.getFactory().createSignalPlanData(Id.create("Pedestrian", SignalPlan.class));
+		controller.addSignalPlanData(plan);
+		plan.setStartTime(0.0);
+		plan.setEndTime(0.0);
+		plan.setCycleTime(cycle);
+		plan.setOffset(0);
+		SignalGroupSettingsData settings = control.getFactory()
 				.createSignalGroupSettingsData(Id.create("PedestrianSignal."+node.getId(), SignalGroup.class));
-		plan1.addSignalGroupSettings(settings1);
-		settings1.setOnset(0);
-		settings1.setDropping(cycle-15);
+		plan.addSignalGroupSettings(settings);
+		settings.setOnset(0);
+		settings.setDropping(cycle-15);
+		groups.addSignalGroupData(group);
 		
 	}
 	
@@ -1203,17 +1213,17 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				.createSignalSystemControllerData(signalSystem.getId());
 		this.control.addSignalSystemControllerData(controller);
 		controller.setControllerIdentifier(DefaultPlanbasedSignalSystemController.IDENTIFIER);
-		SignalPlanData plan1 = this.control.getFactory().createSignalPlanData(Id.create("1", SignalPlan.class));
-		controller.addSignalPlanData(plan1);
-		plan1.setStartTime(0.0);
-		plan1.setEndTime(0.0);
-		plan1.setCycleTime(cycle);
-		plan1.setOffset(0);
-		SignalGroupSettingsData settings1 = control.getFactory()
+		SignalPlanData plan = this.control.getFactory().createSignalPlanData(Id.create("1", SignalPlan.class));
+		controller.addSignalPlanData(plan);
+		plan.setStartTime(0.0);
+		plan.setEndTime(0.0);
+		plan.setCycleTime(cycle);
+		plan.setOffset(0);
+		SignalGroupSettingsData settings = control.getFactory()
 				.createSignalGroupSettingsData(Id.create("1", SignalGroup.class));
-		plan1.addSignalGroupSettings(settings1);
-		settings1.setOnset(0);
-		settings1.setDropping(55);
+		plan.addSignalGroupSettings(settings);
+		settings.setOnset(0);
+		settings.setDropping(55);
 		
 	}
 
