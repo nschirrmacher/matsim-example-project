@@ -489,7 +489,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 		
 		for(OsmWay way : badWays){
-			this.ways.remove(way);
+			this.ways.remove(way.id);
 		}
 
 		// pushing signals to junctions				
@@ -1761,7 +1761,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				lanes2remove.add(lane);
 			}			
 			for(Lane lane : lanes2remove){
-				lanes.getLanesToLinkAssignments().get(link.getId()).getLanes().remove(lane);
+				lanes.getLanesToLinkAssignments().get(link.getId()).getLanes().remove(lane.getId());
 			}
 			//remove LanesToLinkAssignment
 			lanes.getLanesToLinkAssignments().remove(link.getId());
