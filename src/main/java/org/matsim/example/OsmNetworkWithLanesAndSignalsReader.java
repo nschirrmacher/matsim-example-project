@@ -882,6 +882,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				//only pedestrian signals are very rare and might not be implemented in OSM if existing
 				//this might be useless 
 				if(node.getInLinks().size() == 2){
+					// TODO winkel anschauen. fall mit zwei einbahnstrassen anders
 					createPlansforPedestrianSignal(node, signalSystem);
 				}
 				
@@ -902,13 +903,11 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					List<LinkVector> inLinks = constructInLinkVectors(node);
 					Tuple<LinkVector, LinkVector> firstPair = getInLinkPair(inLinks);
 					LinkVector first = null;
-					boolean firstIsEmpty = true;
 					LinkVector second = null;
 					for(int i = 0; i < inLinks.size(); i++){
-						if(firstIsEmpty){
+						if(first == null){
 							if(!inLinks.get(i).equals(firstPair.getFirst()) && !inLinks.get(i).equals(firstPair.getSecond())){
 								first = inLinks.get(i);
-								firstIsEmpty = false;
 							}
 						}else{
 							if(!inLinks.get(i).equals(firstPair.getFirst()) && !inLinks.get(i).equals(firstPair.getSecond())){
@@ -924,7 +923,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				if(node.getInLinks().size() > 4){
 					//is it even possible?
 					createSimpleDefaultControllerPlanAndSetting(signalSystem);
-					log.warn("5-Way-Signals detected");
+					throw new RuntimeException("Signal system with more than four in-links detected");
 				}
 			}
 		}
@@ -996,6 +995,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					}
 				}					
 			}
+			// TODO zwischenzeit als variable
 			settings = createSetting(changeTime - 15,changeTime - 5, node, group.getId());
 			plan.addSignalGroupSettings(settings);
 			groups.addSignalGroupData(group);
@@ -1062,6 +1062,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		int changeTime = (int) ((lanesPair)/(lanesPair + thirdArm.getLink().getNumberOfLanes())*cycle);
 		boolean firstIsCritical = false;		
 		if(pair.getFirst().getLink().getNumberOfLanes() + pair.getSecond().getLink().getNumberOfLanes() > 4)
+			// TODO ist das ueberhaupt noetig?
 			twoPhase = true;
 		List<Lane> criticalSignalLanes = new ArrayList<Lane>();
 		if(pair.getFirst().getRotationToOtherInLink(thirdArm) > PI)
