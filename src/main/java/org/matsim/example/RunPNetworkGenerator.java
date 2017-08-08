@@ -1,28 +1,20 @@
 package org.matsim.example;
 
-import java.util.Set;
-import java.util.TreeSet;
-
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.contrib.signals.SignalSystemsConfigGroup;
 import org.matsim.contrib.signals.data.SignalsData;
-import org.matsim.contrib.signals.data.SignalsScenarioLoader;
+import org.matsim.contrib.signals.data.SignalsDataLoader;
 import org.matsim.contrib.signals.data.SignalsScenarioWriter;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.config.ConfigWriter;
-import org.matsim.core.network.NetworkWriter;
-import org.matsim.core.network.algorithms.NetworkCalcTopoType;
-import org.matsim.core.network.algorithms.NetworkCleaner;
+import org.matsim.core.network.io.NetworkWriter;
 import org.matsim.core.scenario.ScenarioUtils;
 import org.matsim.core.utils.geometry.CoordinateTransformation;
 import org.matsim.core.utils.geometry.transformations.TransformationFactory;
-import org.matsim.dgretherCopies.LanesConsistencyChecker;
-import org.matsim.dgretherCopies.NetworkLanesSignalsSimplifier;
-import org.matsim.dgretherCopies.SignalSystemsDataConsistencyChecker;
-import org.matsim.lanes.data.v20.LaneDefinitionsWriter20;
-import org.matsim.lanes.data.v20.Lanes;
+import org.matsim.lanes.data.Lanes;
+import org.matsim.lanes.data.LanesWriter;
 
 
 /**
@@ -58,8 +50,8 @@ public class RunPNetworkGenerator {
 		signalSystemsConfigGroup.setUseSignalSystems(true);
 		config.qsim().setUseLanes(true); //nicht sicher, ob wir das hier (fuer xvis) brauchen. schadet aber nicht. theresa,may'17
 		
-		Scenario scenario = ScenarioUtils.createScenario(config);		
-		scenario.addScenarioElement(SignalsData.ELEMENT_NAME, new SignalsScenarioLoader(signalSystemsConfigGroup).loadSignalsData());
+		Scenario scenario = ScenarioUtils.createScenario(config);
+		scenario.addScenarioElement(SignalsData.ELEMENT_NAME, new SignalsDataLoader(config).loadSignalsData());
 		
 		SignalsData signalsData = (SignalsData) scenario.getScenarioElement(SignalsData.ELEMENT_NAME);
 		//added Lanes
@@ -121,7 +113,7 @@ public class RunPNetworkGenerator {
 		signalsWriter.setSignalControlOutputFilename(signalSystemsConfigGroup.getSignalControlFile());
 		signalsWriter.writeSignalsData(scenario);
 		
-		LaneDefinitionsWriter20 writerDelegate = new LaneDefinitionsWriter20(scenario.getLanes());
+		LanesWriter writerDelegate = new LanesWriter(scenario.getLanes());
 		writerDelegate.write(config.network().getLaneDefinitionsFile());
 	}
 

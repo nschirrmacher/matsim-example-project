@@ -34,16 +34,14 @@ import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.network.Link;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.api.core.v01.network.Node;
-import org.matsim.core.network.LinkImpl;
-import org.matsim.core.network.NetworkImpl;
-import org.matsim.core.network.algorithms.NetworkCalcTopoType;
-import org.matsim.lanes.data.v20.Lane;
-import org.matsim.lanes.data.v20.Lanes;
-import org.matsim.lanes.data.v20.LanesToLinkAssignment20;
 import org.matsim.contrib.signals.data.SignalsData;
 import org.matsim.contrib.signals.data.signalgroups.v20.SignalData;
 import org.matsim.contrib.signals.data.signalsystems.v20.SignalSystemData;
 import org.matsim.contrib.signals.model.SignalSystem;
+import org.matsim.core.network.algorithms.NetworkCalcTopoType;
+import org.matsim.lanes.data.Lane;
+import org.matsim.lanes.data.Lanes;
+import org.matsim.lanes.data.LanesToLinkAssignment;
 
 /**
  * Simplifies a given network, by merging links.
@@ -136,11 +134,11 @@ public class NetworkLanesSignalsSimplifier {
 								if (linkLengthAccepted(inLink,outLink)){									
 								// Only merge links with same attributes
 								if (bothLinksHaveSameLinkStats(inLink, outLink)) {
-									LinkImpl newLink = ((NetworkImpl) network).createAndAddLink(
-											this.createId(inLink.getId(), outLink.getId()), inLink.getFromNode(), outLink.getToNode(),
-											inLink.getLength() + outLink.getLength(), inLink.getFreespeed(),
-											inLink.getCapacity(), inLink.getNumberOfLanes(), null, null);
-
+									Link newLink = network.getFactory().createLink(this.createId(inLink.getId(), outLink.getId()), inLink.getFromNode(), outLink.getToNode());
+									newLink.setLength(inLink.getLength() + outLink.getLength());
+									newLink.setFreespeed(inLink.getFreespeed());
+									newLink.setCapacity(inLink.getCapacity());
+									newLink.setNumberOfLanes(inLink.getNumberOfLanes());
 									newLink.setAllowedModes(inLink.getAllowedModes());
 
 									//remove all from scenario
@@ -154,8 +152,8 @@ public class NetworkLanesSignalsSimplifier {
 									
 									//take lanes of outLink and adapt length of first lane
 									if (lanes.getLanesToLinkAssignments().containsKey(outLink.getId())){
-										LanesToLinkAssignment20 l2l = lanes.getLanesToLinkAssignments().remove(outLink.getId());
-										LanesToLinkAssignment20 newL2l = lanes.getFactory().createLanesToLinkAssignment(newLink.getId());
+										LanesToLinkAssignment l2l = lanes.getLanesToLinkAssignments().remove(outLink.getId());
+										LanesToLinkAssignment newL2l = lanes.getFactory().createLanesToLinkAssignment(newLink.getId());
 										newL2l.getLanes().putAll(l2l.getLanes());
 										//correct first lane of newLink which starts at the beginning of inLink
 										for (Lane lane : newL2l.getLanes().values()){
@@ -167,7 +165,7 @@ public class NetworkLanesSignalsSimplifier {
 									}
 									
 									//correct lanes with toLink = inLink
-									for (LanesToLinkAssignment20  l2l : lanes.getLanesToLinkAssignments().values()){
+									for (LanesToLinkAssignment l2l : lanes.getLanesToLinkAssignments().values()){
 										for (Lane lane : l2l.getLanes().values()){
 											if (lane.getToLinkIds() != null && lane.getToLinkIds().contains(inLink.getId())) {
 												lane.getToLinkIds().remove(inLink.getId());

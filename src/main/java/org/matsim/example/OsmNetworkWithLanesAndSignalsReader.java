@@ -34,8 +34,12 @@ import java.util.Set;
 import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
 
-import javax.vecmath.Vector2d;
-
+import org.apache.log4j.Logger;
+import org.matsim.api.core.v01.Coord;
+import org.matsim.api.core.v01.Id;
+import org.matsim.api.core.v01.network.Link;
+import org.matsim.api.core.v01.network.Network;
+import org.matsim.api.core.v01.network.Node;
 import org.matsim.contrib.signals.data.SignalsData;
 import org.matsim.contrib.signals.data.signalgroups.v20.SignalControlData;
 import org.matsim.contrib.signals.data.signalgroups.v20.SignalData;
@@ -52,25 +56,19 @@ import org.matsim.contrib.signals.model.SignalGroup;
 import org.matsim.contrib.signals.model.SignalPlan;
 import org.matsim.contrib.signals.model.SignalSystem;
 import org.matsim.contrib.signals.utils.SignalUtils;
-
-import org.apache.log4j.Logger;
-import org.matsim.api.core.v01.Coord;
-import org.matsim.api.core.v01.Id;
-import org.matsim.api.core.v01.network.Link;
-import org.matsim.api.core.v01.network.Network;
-import org.matsim.api.core.v01.network.Node;
 import org.matsim.core.api.internal.MatsimSomeReader;
-import org.matsim.core.network.LinkImpl;
-import org.matsim.core.network.NetworkImpl;
 import org.matsim.core.utils.collections.Tuple;
 import org.matsim.core.utils.geometry.CoordUtils;
 import org.matsim.core.utils.geometry.CoordinateTransformation;
 import org.matsim.core.utils.io.MatsimXmlParser;
 import org.matsim.core.utils.io.UncheckedIOException;
 import org.matsim.core.utils.misc.Counter;
+import org.matsim.lanes.data.Lane;
+import org.matsim.lanes.data.Lanes;
+import org.matsim.lanes.data.LanesFactory;
+import org.matsim.lanes.data.LanesToLinkAssignment;
 import org.xml.sax.Attributes;
-import org.matsim.lanes.data.v20.Lane;
-import org.matsim.lanes.data.v20.*;
+import org.xml.sax.InputSource;
 
 /**
  * Reads in an OSM-File, exported from
@@ -137,6 +135,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 
 	private final static double PI = 3.141592654;
 	private final static int DEFAULT_LANE_OFFSET = 35; 
+	
+	private final static String ORIG_ID = "origId";
+	private final static String TYPE = "type";
 	
 	
 	private final Map<Long, OsmNode> nodes = new HashMap<Long, OsmNode>();
@@ -256,24 +257,24 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			parser = new OsmXmlParser(this.nodes, this.ways, this.transform);
 			parser.enableOptimization(1);
 			if (stream != null) {
-				parser.parse(stream);
+				parser.parse(new InputSource(stream));
 			} else {
-				parser.parse(osmFilename);
+				parser.readFile(osmFilename);
 			}
 			log.info("parsing osm file second time: loading required nodes and ways");
 			parser.enableOptimization(2);
 			if (stream != null) {
-				parser.parse(stream);
+				parser.parse(new InputSource(stream));
 			} else {
-				parser.parse(osmFilename);
+				parser.readFile(osmFilename);
 			}
 			log.info("done loading data");
 		} else {
 			parser = new OsmXmlParser(this.nodes, this.ways, this.transform);
 			if (stream != null) {
-				parser.parse(stream);
+				parser.parse(new InputSource(stream));
 			} else {
-				parser.parse(osmFilename);
+				parser.readFile(osmFilename);
 			}
 		}
 		convert();
@@ -440,8 +441,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	}
 
 	private void convert() {
-		if (this.network instanceof NetworkImpl) {
-			((NetworkImpl) this.network).setCapacityPeriod(3600);
+		if (this.network instanceof Network) {
+			((Network) this.network).setCapacityPeriod(3600);
 		}
 
 		Iterator<Entry<Long, OsmWay>> it = this.ways.entrySet().iterator();
@@ -829,7 +830,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					createLanes(link, lanes, 1, Long.valueOf(link.getId().toString()));
 					List<LinkVector> linkVectors = constructOrderedOutLinkVectors(link);
 					removeRestrictedLinks(link, linkVectors);
-					LanesToLinkAssignment20 l4l = lanes.getLanesToLinkAssignments().get(link.getId());
+					LanesToLinkAssignment l4l = lanes.getLanesToLinkAssignments().get(link.getId());
 					Id<Lane> LaneId = Id.create("Lane" + link.getId() + ".1", Lane.class);
 					for (LinkVector lvec : linkVectors) {
 						Id<Link> toLink = lvec.getLink().getId();
@@ -1480,10 +1481,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				l.setFreespeed(freespeed);
 				l.setCapacity(capacity);
 				l.setNumberOfLanes(nofLanesForw);
-				if (l instanceof LinkImpl) {
-					((LinkImpl) l).setOrigId(origId);
-					((LinkImpl) l).setType(highway);
-				}
+				l.getAttributes().putAttribute(ORIG_ID, origId);
+				l.getAttributes().putAttribute(TYPE, highway);
 				
 				// create Lanes only if more than one Lane detected
 				if (nofLanesForw > 1) {
@@ -1527,10 +1526,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				l.setFreespeed(freespeed);
 				l.setCapacity(capacity);
 				l.setNumberOfLanes(nofLanesBack);
-				if (l instanceof LinkImpl) {
-					((LinkImpl) l).setOrigId(origId);
-					((LinkImpl) l).setType(highway);
-				}				
+				l.getAttributes().putAttribute(ORIG_ID, origId);
+				l.getAttributes().putAttribute(TYPE, highway);
+				
 				// create Lanes only if more than one Lane detected
 				if (nofLanesBack > 1) {
 					createLanes(l, lanes, nofLanesBack, id);
@@ -1572,8 +1570,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	// created - useful?************
 	// **************************************************************************************************
 	private void createLanes(final Link l, final Lanes lanes, final double nofLanes, long id) {
-		LaneDefinitionsFactory20 factory = lanes.getFactory();
-		LanesToLinkAssignment20 lanesForLink = factory.createLanesToLinkAssignment(Id.create(l.getId(), Link.class));
+		LanesFactory factory = lanes.getFactory();
+		LanesToLinkAssignment lanesForLink = factory.createLanesToLinkAssignment(Id.create(l.getId(), Link.class));
 		lanes.addLanesToLinkAssignment(lanesForLink);
 		//Lane origLane = lanes.getFactory().createLane(Id.create("Lane" + id + ".ol", Lane.class));
 		//origLane.setStartsAtMeterFromLinkEnd(l.getLength());
@@ -1623,7 +1621,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				// log.info("Put together Lane " +
 				// leftLane.getId().toString() + " and Lane " +
 				// rightLane.getId().toString());
-				LanesToLinkAssignment20 linkLanes = lanes.getLanesToLinkAssignments().get(link.getId());
+				LanesToLinkAssignment linkLanes = lanes.getLanesToLinkAssignments().get(link.getId());
 				origLane.getToLaneIds().remove(rightLane.getId());
 				linkLanes.getLanes().remove(rightLane.getId());
 			} else {
@@ -2033,14 +2031,14 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			// log.info("Restriction found @ " + toNode.id);
 			for (OsmRelation restriction : toNode.restrictions) {
 				// if (fromLink instanceof LinkImpl) {
-				if (Long.valueOf(((LinkImpl) fromLink).getOrigId()) == restriction.fromRestricted.id) {
+				if (Long.valueOf(fromLink.getAttributes().getAttribute(ORIG_ID).toString()) == restriction.fromRestricted.id) {
 					// log.info("Restriction found @ " + toNode.id + " and " +
 					// restriction.fromRestricted.id);
 					if (restriction.restrictionValue == false) {
 						for (LinkVector linkVector : toLinks) {
 							// if (linkVector.getLink() instanceof LinkImpl) {
-							if (Long.valueOf(
-									((LinkImpl) linkVector.getLink()).getOrigId()) == restriction.toRestricted.id) {							
+							if (Long.valueOf(linkVector.getLink().getAttributes().getAttribute(ORIG_ID).toString()) 
+									== restriction.toRestricted.id) {							
 								toLinks.remove(linkVector);
 
 								log.info("'No'-Restriction @ " + fromLink.getId().toString() + " and #Rel "
@@ -2053,7 +2051,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						// ID " + restriction.toRestricted.id);
 					} else {
 						for (LinkVector linkVector : toLinks) {							
-							if (Long.valueOf(((LinkImpl) linkVector.getLink()).getOrigId()) == restriction.toRestricted.id) {
+							if (Long.valueOf(linkVector.getLink().getAttributes().getAttribute(ORIG_ID).toString()) 
+									== restriction.toRestricted.id) {
 								LinkVector onlyLink = linkVector;
 								toLinks.clear();
 								toLinks.add(onlyLink);
@@ -2175,7 +2174,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		public final long id;
 		public boolean used = false;
 //		public int ways = 0;
-		public final Coord coord;
+		public Coord coord;
 		public boolean signalized = false;
 		public boolean crossing = false;
 //		public int signalDir = 0;
@@ -2318,8 +2317,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					if (node != null) {
 						double lat = Double.parseDouble(atts.getValue("lat"));
 						double lon = Double.parseDouble(atts.getValue("lon"));
-						Coord c = this.transform.transform(new Coord(lon, lat));
-						node.coord.setXY(c.getX(), c.getY());
+						node.coord = this.transform.transform(new Coord(lon, lat));
 						this.nodeCounter.incCounter();
 					}
 				}

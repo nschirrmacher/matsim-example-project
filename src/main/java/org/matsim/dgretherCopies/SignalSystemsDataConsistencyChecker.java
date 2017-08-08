@@ -32,9 +32,9 @@ import org.matsim.contrib.signals.data.signalsystems.v20.SignalSystemsData;
 import org.matsim.contrib.signals.model.Signal;
 import org.matsim.contrib.signals.model.SignalSystem;
 import org.matsim.core.utils.collections.Tuple;
-import org.matsim.lanes.data.v20.Lane;
-import org.matsim.lanes.data.v20.Lanes;
-import org.matsim.lanes.data.v20.LanesToLinkAssignment20;
+import org.matsim.lanes.data.Lane;
+import org.matsim.lanes.data.Lanes;
+import org.matsim.lanes.data.LanesToLinkAssignment;
 
 
 /**
@@ -108,7 +108,7 @@ public class SignalSystemsDataConsistencyChecker {
 					}
 					else {
 						List<Id<Lane>> lanesToRemove = new LinkedList<>();
-						LanesToLinkAssignment20 l2l = this.lanes.getLanesToLinkAssignments().get(signal.getLinkId());
+						LanesToLinkAssignment l2l = this.lanes.getLanesToLinkAssignments().get(signal.getLinkId());
 						for (Id<Lane> laneId : signal.getLaneIds()) {
 							if (! l2l.getLanes().containsKey(laneId)) {
 								log.error("Error: No Lane for Signal: "); 
