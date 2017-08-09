@@ -3,7 +3,7 @@ package org.matsim.example;
 import java.util.ArrayList;
 import java.util.Collections;
 
-import javax.vecmath.Vector2d;
+//import javax.vecmath.Vector2d;
 
 import org.matsim.api.core.v01.Coord;
 import org.matsim.api.core.v01.Id;
@@ -13,6 +13,8 @@ import org.matsim.api.core.v01.network.Network;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.scenario.ScenarioUtils;
+
+import com.vividsolutions.jts.math.Vector2D;
 
 
 public class testVector {
@@ -79,8 +81,8 @@ public class testVector {
 		}
 		
 		private void calculateAlpha(){
-			Vector2d ref = new Vector2d(1,0);
-			Vector2d linkV = new Vector2d(this.x, this.y);
+			Vector2D ref = new Vector2D(1,0);
+			Vector2D linkV = new Vector2D(this.x, this.y);
 			if (this.y > 0){
 				this.alpha = ref.angle(linkV);
 			}else{

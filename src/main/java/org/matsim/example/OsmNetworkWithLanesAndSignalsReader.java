@@ -70,6 +70,8 @@ import org.matsim.lanes.data.LanesToLinkAssignment;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 
+import com.vividsolutions.jts.math.Vector2D;
+
 /**
  * Reads in an OSM-File, exported from
  * <a href="http://openstreetmap.org/" target="_blank">OpenStreetMap</a>, and
@@ -2090,8 +2092,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 
 		private void calculateAlpha() {
-			Vector2d ref = new Vector2d(1, 0);
-			Vector2d linkV = new Vector2d(this.x, this.y);
+			Vector2D ref = new Vector2D(1, 0);
+			Vector2D linkV = new Vector2D(this.x, this.y);
 			if (this.y > 0) {
 				this.alpha = ref.angle(linkV);
 			} else {
