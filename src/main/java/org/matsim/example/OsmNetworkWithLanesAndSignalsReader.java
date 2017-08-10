@@ -651,6 +651,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						junctionNode.used = true;
 						for (OsmNode tempNode : junctionNodes) {
 							tempNode.repJunNode = junctionNode;
+							for(OsmRelation restriction : tempNode.restrictions)
+								junctionNode.restrictions.add(restriction);
 							checkedNodes.add(tempNode);
 						}
 						addingNodes.add(junctionNode);
@@ -698,6 +700,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						junctionNode.used = true;
 						for (OsmNode tempNode : junctionNodes) {
 							tempNode.repJunNode = junctionNode;
+							for(OsmRelation restriction : tempNode.restrictions)
+								junctionNode.restrictions.add(restriction);
 							checkedNodes.add(tempNode);
 						}
 						addingNodes.add(junctionNode);
@@ -745,8 +749,12 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						junctionNode.signalized = true;
 					junctionNode.used = true;
 					node.repJunNode = junctionNode;
+					for(OsmRelation restriction : node.restrictions)
+						junctionNode.restrictions.add(restriction);
 					checkedNodes.add(node);
 					otherNode.repJunNode = junctionNode;
+					for(OsmRelation restriction : otherNode.restrictions)
+						junctionNode.restrictions.add(restriction);
 					checkedNodes.add(otherNode);
 					addingNodes.add(junctionNode);
 					id++;
@@ -2027,7 +2035,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	}
 
 	private void removeRestrictedLinks(Link fromLink, List<LinkVector> toLinks) {
-		// Long.valueOf... easier way?
+		// TODO look if you can keep more restrictions
 		OsmNode toNode = nodes.get(Long.valueOf(fromLink.getToNode().getId().toString()));
 		if (!toNode.restrictions.isEmpty()) {
 			// log.info("Restriction found @ " + toNode.id);
@@ -2037,18 +2045,21 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					// log.info("Restriction found @ " + toNode.id + " and " +
 					// restriction.fromRestricted.id);
 					if (restriction.restrictionValue == false) {
+						LinkVector lvec2remove = null;
 						for (LinkVector linkVector : toLinks) {
 							// if (linkVector.getLink() instanceof LinkImpl) {
+							
 							if (Long.valueOf(linkVector.getLink().getAttributes().getAttribute(ORIG_ID).toString()) 
 									== restriction.toRestricted.id) {							
-								toLinks.remove(linkVector);
+								lvec2remove = linkVector;
 
 								log.info("'No'-Restriction @ " + fromLink.getId().toString() + " and #Rel "
 										+ restriction.id + ". " + linkVector.getLink().getId().toString() + " removed");
-								return;
+								break;
 							}
 							// }
 						}
+						toLinks.remove(lvec2remove);
 						// log.warn(restriction.id + " has a problem finding to
 						// ID " + restriction.toRestricted.id);
 					} else {
@@ -2068,9 +2079,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						// ID " + restriction.toRestricted.id);
 					}
 				} else {
-					// log.info("could not find fromLink " +
-					// Long.valueOf(((LinkImpl) fromLink).getOrigId()) + " in
-					// restriction " + restriction.id);
+					log.info("could not find fromLink " + Long.valueOf(fromLink.getAttributes().getAttribute(ORIG_ID).toString()) + " in restriction " + restriction.id);
 				}
 				// }
 			}
