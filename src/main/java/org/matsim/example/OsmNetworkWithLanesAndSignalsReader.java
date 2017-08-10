@@ -136,7 +136,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			TAG_RESTRICTION, TAG_SIGNALS };
 
 	private final static double PI = 3.141592654;
-	private final static int DEFAULT_LANE_OFFSET = 35; 
+	private final static int DEFAULT_LANE_OFFSET = 35;
+	private final static int INTERGREENTIME = 5;
+	private final static int SECOND_PHASE_TIME = 10;
 	
 	private final static String ORIG_ID = "origId";
 	private final static String TYPE = "type";
@@ -145,10 +147,11 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	private final Map<Long, OsmNode> nodes = new HashMap<Long, OsmNode>();
 	private final Map<Long, OsmWay> ways = new HashMap<Long, OsmWay>();
 	private final Map<Id<Link>, LaneStack> laneStacks = new HashMap<Id<Link>, LaneStack>();
+	private final Map<Long, OsmNode> roundaboutNodes = new HashMap<Long, OsmNode>();
+	
 	private final Set<String> unknownHighways = new HashSet<String>();
 	private final Set<String> unknownMaxspeedTags = new HashSet<String>();
 	private final Set<String> unknownLanesTags = new HashSet<String>();
-	private final Set<String> junctionSignalSystems = new HashSet<String>();
 	private long id = 0;
 	/* package */ final Map<String, OsmHighwayDefaults> highwayDefaults = new HashMap<String, OsmHighwayDefaults>();
 	private final Network network;
@@ -420,10 +423,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	}
 	
 	/**
-	 * By default, this converter caches a lot of data internally to speed up
-	 * the network generation. This can lead to OutOfMemoryExceptions when
-	 * converting huge osm files. By enabling this memory optimization, the
-	 * converter tries to reduce its memory usage, but will run slower.
+	 * 
 	 *
 	 * @param modeOutLanes
 	 * 			The mode in which ToLinks are determined in case of missing 
@@ -494,6 +494,25 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		for(OsmWay way : badWays){
 			this.ways.remove(way.id);
 		}
+		
+		//trying to simplify signals in roundabouts
+		for (OsmWay way : this.ways.values()) {
+			String junction = way.tags.get(TAG_JUNCTION);
+			if(junction != null && junction.equals("roundabout")){
+				for (int i = 1; i < way.nodes.size()-1; i++) {
+					OsmNode junctionNode = this.nodes.get(way.nodes.get(i));
+					OsmNode otherNode = null;
+					if(junctionNode.signalized)
+						otherNode = findRoundaboutSignalNode(junctionNode, way, i);
+					if(otherNode != null){
+						junctionNode.signalized = false;
+						otherNode.signalized = true;
+						log.info("signal push around roundabout");
+					}
+				}
+			}
+		}
+		
 
 		// pushing signals to junctions				
 		for (OsmWay way : this.ways.values()) {
@@ -581,7 +600,19 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				}
 			}	
 		}
-
+		
+		for(OsmWay way : this.ways.values()){
+			String oneway = way.tags.get(TAG_ONEWAY);
+			if (oneway != null && !oneway.equals("-1")) {
+				OsmNode signalNode = null;
+				for(int i = 0; i < way.nodes.size(); i++){
+					signalNode = this.nodes.get(way.nodes.get(i));
+					if(signalNode.signalized && signalNode.isNotAtJunction())
+						signalNode.signalized = try2findRoundabout(signalNode, way, i);
+				}
+			}
+		}
+		
 		if (!this.keepPaths) {
 			// marked nodes as unused where only one way leads through
 			for (OsmNode node : this.nodes.values()) {
@@ -879,22 +910,18 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 		int badCounter = 0;
 		for(Node node : this.network.getNodes().values()){
+			
 			Id<SignalSystem> systemId = Id.create("System" + Long.valueOf(node.getId().toString()), SignalSystem.class);
 			if(this.systems.getSignalSystemData().containsKey(systemId)){
 				SignalSystemData signalSystem = this.systems.getSignalSystemData().get(systemId);
-				if(node.getInLinks().size() == 1){
-					if(!junctionSignalSystems.contains(systemId.toString())){
-						log.info(node.getId());
-						badCounter++;
-					}
+				if(node.getInLinks().size() == 1){					
 					createSimpleDefaultControllerPlanAndSetting(signalSystem);
+					log.info("single signal found @ " + node.getId());
+					badCounter++;
 				}
-				
-				//only pedestrian signals are very rare and might not be implemented in OSM if existing
-				//this might be useless 
-				if(node.getInLinks().size() == 2){
-					// TODO winkel anschauen. fall mit zwei einbahnstrassen anders
-					createPlansforPedestrianSignal(node, signalSystem);
+								
+				if(node.getInLinks().size() == 2){					
+					createPlansforTwoWayJunction(node, signalSystem);
 				}
 				
 				if(node.getInLinks().size() == 3){
@@ -937,18 +964,72 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					throw new RuntimeException("Signal system with more than four in-links detected");
 				}
 			}
+			
 		}
-		
-		log.info(badCounter);
-		
-		for(String s : junctionSignalSystems){
-			log.info(s);
-		}
-		
+		log.info(badCounter);	
 		this.nodes.clear();
 		this.ways.clear();
 	}
 	
+	private boolean try2findRoundabout(OsmNode signalNode, OsmWay way, int index) {
+		String junction;
+		OsmWay otherWay = null;
+		OsmNode endPoint = this.nodes.get(way.nodes.get(way.nodes.size()-1));
+		if(endPoint.ways.size() == 2){
+			for(OsmWay tempWay : endPoint.ways.values()){
+				if(!tempWay.equals(way))
+					otherWay = tempWay;
+				break;
+			}
+			if(otherWay == null)
+				return true;
+			junction = otherWay.tags.get(TAG_JUNCTION);
+			if(junction != null && junction.equals("roundabout")){
+				return false;
+			}
+			endPoint = this.nodes.get(otherWay.nodes.get(otherWay.nodes.size()-1));
+			if(endPoint.ways.size() == 2)
+				return true;
+			else{
+				for(OsmWay tempWay : endPoint.ways.values()){
+					if(!tempWay.equals(otherWay)){
+						way = tempWay;
+						junction = way.tags.get(TAG_JUNCTION);
+						log.info("Trying to find Roundabout");
+						if(junction != null && junction.equals("roundabout")){
+							log.info("Roundabout found @ " + endPoint.id);
+							return false;
+						}
+					}
+				}								
+			}
+		}			
+		return true;
+	}
+
+	private OsmNode findRoundaboutSignalNode(OsmNode junctionNode, OsmWay way, int index) {
+		OsmNode otherNode = null;
+		for(int i = index + 1; i < way.nodes.size(); i++){
+			otherNode = this.nodes.get(way.nodes.get(i));
+			if((otherNode.ways.size() > 1 && !otherNode.endPoint) || (otherNode.ways.size() > 2 && otherNode.endPoint))
+				return otherNode;
+		}
+		for(OsmWay tempWay : otherNode.ways.values()){
+			if(!tempWay.equals(way))
+				way = tempWay;
+			break;
+		}
+		String junction = way.tags.get(TAG_JUNCTION);
+		if(junction != null && junction.equals("roundabout")){		
+			for(int i = 0; i < way.nodes.size(); i++){
+				otherNode = this.nodes.get(way.nodes.get(i));
+				if((otherNode.ways.size() > 1 && !otherNode.endPoint) || (otherNode.ways.size() > 2 && otherNode.endPoint))
+					return otherNode;
+			}	
+		}
+		return null;
+	}
+
 	private void createPlansForFourWayJunction(Node node, SignalSystemData signalSystem, Tuple<LinkVector, LinkVector> firstPair, Tuple<LinkVector, LinkVector> secondPair) {
 		int groupNumber = 1;
 		int cycle = 90;
@@ -959,122 +1040,38 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			changeTime = 30;
 		if(changeTime > 60)
 			changeTime = 60;
-		boolean twoPhaseFirst = false;
-		boolean twoPhaseSecond = false;
-		if(firstPair.getFirst().getLink().getNumberOfLanes() + firstPair.getSecond().getLink().getNumberOfLanes() > 4)
-			twoPhaseFirst = true;
-		if(secondPair.getFirst().getLink().getNumberOfLanes() + secondPair.getSecond().getLink().getNumberOfLanes() > 4)
-			twoPhaseSecond = true;
-		List<Lane> criticalSignalLanesFirst = new ArrayList<Lane>();
-		if(twoPhaseFirst){
-			findTwoPhaseSignalLanes(firstPair, criticalSignalLanesFirst);
-		}
-		if(criticalSignalLanesFirst.isEmpty())
-			twoPhaseFirst = false;
-		List<Lane> criticalSignalLanesSecond = new ArrayList<Lane>();
-		if(twoPhaseSecond){
-			findTwoPhaseSignalLanes(secondPair, criticalSignalLanesSecond);
-		}
-		if(criticalSignalLanesSecond.isEmpty())
-			twoPhaseSecond = false;
 		
+		List<Lane> criticalSignalLanesFirst = new ArrayList<Lane>();
+		findTwoPhaseSignalLanes(firstPair, criticalSignalLanesFirst);
+					
+		List<Lane> criticalSignalLanesSecond = new ArrayList<Lane>();
+		findTwoPhaseSignalLanes(secondPair, criticalSignalLanesSecond);
+				
 		SignalSystemControllerData controller = createController(signalSystem);
 		SignalPlanData plan = createPlan(node, cycle);
 		controller.addSignalPlanData(plan);
-		SignalGroupData group = createSignalGroup(groupNumber, signalSystem, node);
-		SignalGroupSettingsData settings = null;
-		if(twoPhaseFirst){			
-			for(SignalData signal : signalSystem.getSignalData().values()){
-				if(signal.getLinkId().equals(firstPair.getFirst().getLink().getId()) || signal.getLinkId().equals(firstPair.getSecond().getLink().getId())){
-					for(int i = 0; i < criticalSignalLanesFirst.size(); i++){
-						if(!signal.getLaneIds().contains(criticalSignalLanesFirst.get(i).getId()))
-							group.addSignalId(signal.getId());
-					}
-				}					
-			}
-			settings = createSetting(0, changeTime - 20, node, group.getId());
-			plan.addSignalGroupSettings(settings);
-			groups.addSignalGroupData(group);
-			groupNumber++;
-			
-			group = createSignalGroup(groupNumber, signalSystem, node);
-			for(SignalData signal : signalSystem.getSignalData().values()){
-				if(signal.getLinkId().equals(firstPair.getFirst().getLink().getId()) || signal.getLinkId().equals(firstPair.getSecond().getLink().getId())){
-					for(int i = 0; i < criticalSignalLanesFirst.size(); i++){
-						if(signal.getLaneIds().contains(criticalSignalLanesFirst.get(i).getId()))
-							group.addSignalId(signal.getId());
-					}
-				}					
-			}
-			// TODO zwischenzeit als variable
-			settings = createSetting(changeTime - 15,changeTime - 5, node, group.getId());
-			plan.addSignalGroupSettings(settings);
-			groups.addSignalGroupData(group);
-			groupNumber++;
+		
+		if(!criticalSignalLanesFirst.isEmpty()){			
+			createTwoPhase(groupNumber, signalSystem, criticalSignalLanesFirst, firstPair, plan, changeTime, cycle, node, true);
+			groupNumber += 2;
 		}else{
-			group = createSignalGroup(groupNumber, signalSystem, node);			
-			for(SignalData signal : signalSystem.getSignalData().values()){
-				if(signal.getLinkId().equals(firstPair.getFirst().getLink().getId()) || signal.getLinkId().equals(firstPair.getSecond().getLink().getId())){
-					group.addSignalId(signal.getId());					
-				}					
-			}
-			settings = createSetting(0, changeTime - 5, node, group.getId());
-			plan.addSignalGroupSettings(settings);
-			groups.addSignalGroupData(group);
+			createOnePhase(groupNumber, signalSystem, firstPair, plan, changeTime, cycle, node, true);
 			groupNumber++;
 		}
 		
-		if(twoPhaseSecond){
-			group = createSignalGroup(groupNumber, signalSystem, node);			
-			for(SignalData signal : signalSystem.getSignalData().values()){
-				if(signal.getLinkId().equals(secondPair.getFirst().getLink().getId()) || signal.getLinkId().equals(secondPair.getSecond().getLink().getId())){
-					for(int i = 0; i < criticalSignalLanesSecond.size(); i++){
-						if(!signal.getLaneIds().contains(criticalSignalLanesSecond.get(i).getId()))
-							group.addSignalId(signal.getId());
-					}
-				}					
-			}
-			settings = createSetting(changeTime, cycle - 20, node, group.getId());
-			plan.addSignalGroupSettings(settings);
-			groups.addSignalGroupData(group);
-			groupNumber++;
-			
-			group = createSignalGroup(groupNumber, signalSystem, node);
-			for(SignalData signal : signalSystem.getSignalData().values()){
-				if(signal.getLinkId().equals(secondPair.getFirst().getLink().getId()) || signal.getLinkId().equals(secondPair.getSecond().getLink().getId())){
-					for(int i = 0; i < criticalSignalLanesSecond.size(); i++){
-						if(signal.getLaneIds().contains(criticalSignalLanesSecond.get(i).getId()))
-							group.addSignalId(signal.getId());
-					}
-				}					
-			}
-			settings = createSetting(cycle - 15, cycle - 5, node, group.getId());
-			plan.addSignalGroupSettings(settings);
-			groups.addSignalGroupData(group);
-			groupNumber++;
+		if(!criticalSignalLanesSecond.isEmpty()){
+			createTwoPhase(groupNumber, signalSystem, criticalSignalLanesSecond, secondPair, plan, changeTime, cycle, node, false);
 		}else{
-			group = createSignalGroup(groupNumber, signalSystem, node);
-			for(SignalData signal : signalSystem.getSignalData().values()){
-				if(signal.getLinkId().equals(secondPair.getFirst().getLink().getId()) || signal.getLinkId().equals(secondPair.getSecond().getLink().getId())){
-					group.addSignalId(signal.getId());					
-				}					
-			}
-			settings = createSetting(changeTime, cycle - 5, node, group.getId());
-			plan.addSignalGroupSettings(settings);
-			groups.addSignalGroupData(group);
+			createOnePhase(groupNumber, signalSystem, secondPair, plan, changeTime, cycle, node, false);
 		}		
 	}
 	
 	private void createPlansforThreeWayJunction(Node node, SignalSystemData signalSystem, Tuple<LinkVector, LinkVector> pair, LinkVector thirdArm) {
 		int groupNumber = 1;
 		int cycle = 90;
-		boolean twoPhase = false;
 		double lanesPair = (pair.getFirst().getLink().getNumberOfLanes() + pair.getSecond().getLink().getNumberOfLanes())/2;
 		int changeTime = (int) ((lanesPair)/(lanesPair + thirdArm.getLink().getNumberOfLanes())*cycle);
 		boolean firstIsCritical = false;		
-		if(pair.getFirst().getLink().getNumberOfLanes() + pair.getSecond().getLink().getNumberOfLanes() > 4)
-			// TODO ist das ueberhaupt noetig?
-			twoPhase = true;
 		List<Lane> criticalSignalLanes = new ArrayList<Lane>();
 		if(pair.getFirst().getRotationToOtherInLink(thirdArm) > PI)
 			firstIsCritical = true;
@@ -1092,54 +1089,118 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		
 		SignalSystemControllerData controller = createController(signalSystem);
 		SignalPlanData plan = createPlan(node, cycle);
-		controller.addSignalPlanData(plan);
-		SignalGroupData group = createSignalGroup(groupNumber, signalSystem, node);
-		SignalGroupSettingsData settings = null;
-		if(!twoPhase && !criticalSignalLanes.isEmpty()){						
-			for(SignalData signal : signalSystem.getSignalData().values()){
-				if(signal.getLinkId().equals(pair.getFirst().getLink().getId()) || signal.getLinkId().equals(pair.getSecond().getLink().getId())){
-					for(int i = 0; i < criticalSignalLanes.size(); i++){
-						if(!signal.getLaneIds().contains(criticalSignalLanes.get(i).getId()))
-							group.addSignalId(signal.getId());
-					}
-				}					
-			}
-			settings = createSetting(0, changeTime - 20, node, group.getId());
-			plan.addSignalGroupSettings(settings);
-			groups.addSignalGroupData(group);
+		controller.addSignalPlanData(plan);		
+		if(!criticalSignalLanes.isEmpty()){						
+			createTwoPhase(groupNumber, signalSystem, criticalSignalLanes, pair, plan, changeTime, cycle, node, true);
+			groupNumber += 2;
+		}else{
+			createOnePhase(groupNumber, signalSystem, pair, plan, changeTime, cycle, node, true);
 			groupNumber++;
-			
-			group = createSignalGroup(groupNumber, signalSystem, node);
-			for(SignalData signal : signalSystem.getSignalData().values()){
-				if(signal.getLinkId().equals(pair.getFirst().getLink().getId()) || signal.getLinkId().equals(pair.getSecond().getLink().getId())){
-					for(int i = 0; i < criticalSignalLanes.size(); i++){
-						if(signal.getLaneIds().contains(criticalSignalLanes.get(i).getId()))
-							group.addSignalId(signal.getId());
-					}
-				}					
-			}
-			settings = createSetting(changeTime - 15,changeTime - 5, node, group.getId());
-			plan.addSignalGroupSettings(settings);
-			groups.addSignalGroupData(group);
-			groupNumber++;
-		}else{					
-			for(SignalData signal : signalSystem.getSignalData().values()){
-				if(signal.getLinkId().equals(pair.getFirst().getLink().getId()) || signal.getLinkId().equals(pair.getSecond().getLink().getId()))
-					group.addSignalId(signal.getId());
-			}
-			settings = createSetting(0, changeTime - 5, node, group.getId());
-			plan.addSignalGroupSettings(settings);
-			groups.addSignalGroupData(group);
-			groupNumber++;
-		}				
-		group = createSignalGroup(groupNumber, signalSystem, node);
-		for(SignalData signal : signalSystem.getSignalData().values()){
-			if(signal.getLinkId().equals(thirdArm.getLink().getId()))
-				group.addSignalId(signal.getId());
 		}
-		settings = createSetting(changeTime, cycle - 5, node, group.getId());
+		createOnePhase(groupNumber, signalSystem, pair, plan, changeTime, cycle, node, false);
+	}
+
+	private void createPlansforTwoWayJunction(Node node, SignalSystemData signalSystem){
+		List<LinkVector> inLinks = constructInLinkVectors(node);
+		double inLinksAngle = inLinks.get(0).getRotationToOtherInLink(inLinks.get(1));
+		if(inLinksAngle > 3/4 * PI && inLinksAngle < 5/4 * PI ){
+			int cycle = 90;
+			SignalGroupData group = this.groups.getFactory().createSignalGroupData(signalSystem.getId(), Id.create("PedestrianSignal."+node.getId(), SignalGroup.class));
+			for(SignalData signal : signalSystem.getSignalData().values()){
+				group.addSignalId(signal.getId());
+			}
+			SignalSystemControllerData controller = createController(signalSystem);
+			SignalPlanData plan = createPlan(node, cycle);
+			controller.addSignalPlanData(plan);		
+			SignalGroupSettingsData settings = createSetting(0, cycle - 15, node, group.getId());
+			plan.addSignalGroupSettings(settings);		
+			groups.addSignalGroupData(group);
+		}else{
+			log.info("Non-Pedestrian Two Way Junction detected @ " + node.getId());
+			int cycle = 90;
+			SignalGroupData groupOne = createSignalGroup(1, signalSystem, node);
+			SignalSystemControllerData controller = createController(signalSystem);
+			SignalPlanData plan = createPlan(node, cycle);
+			controller.addSignalPlanData(plan);	
+			for(SignalData signal : signalSystem.getSignalData().values()){
+				if(signal.getLinkId().equals(inLinks.get(0).getLink().getId()))
+					groupOne.addSignalId(signal.getId());
+			}				
+			SignalGroupSettingsData settingsFirst = createSetting(0, 45 - INTERGREENTIME, node, groupOne.getId());
+			plan.addSignalGroupSettings(settingsFirst);		
+			groups.addSignalGroupData(groupOne);
+			
+			SignalGroupData groupTwo = createSignalGroup(2, signalSystem, node);
+			for(SignalData signal : signalSystem.getSignalData().values()){
+				if(signal.getLinkId().equals(inLinks.get(1).getLink().getId()))
+					groupTwo.addSignalId(signal.getId());
+			}
+			
+			controller.addSignalPlanData(plan);		
+			SignalGroupSettingsData settingsSecond = createSetting(45, 90 - INTERGREENTIME, node, groupTwo.getId());
+			plan.addSignalGroupSettings(settingsSecond);		
+			groups.addSignalGroupData(groupTwo);
+		}
+	}
+
+	private void createTwoPhase(int groupNumber, SignalSystemData signalSystem, List<Lane> criticalSignalLanes, Tuple<LinkVector, LinkVector> pair, SignalPlanData plan, int changeTime, int cycle, Node node, boolean first) {
+		SignalGroupData groupOne = createSignalGroup(groupNumber, signalSystem, node);
+		for(SignalData signal : signalSystem.getSignalData().values()){
+			if(signal.getLinkId().equals(pair.getFirst().getLink().getId()) || signal.getLinkId().equals(pair.getSecond().getLink().getId())){
+				boolean firstPhase = true;
+				for(int i = 0; i < criticalSignalLanes.size(); i++){					
+					if(signal.getLaneIds() != null && signal.getLaneIds().contains(criticalSignalLanes.get(i).getId()))
+						firstPhase = false;						
+				}
+				if(firstPhase)
+					groupOne.addSignalId(signal.getId());					
+			}					
+		}
+		SignalGroupSettingsData settingsFirst = null;
+		if(first)
+			settingsFirst = createSetting(0, changeTime - (2 * INTERGREENTIME + SECOND_PHASE_TIME), node, groupOne.getId());
+		else
+			settingsFirst = createSetting(changeTime, cycle - (2 * INTERGREENTIME + SECOND_PHASE_TIME), node, groupOne.getId());
+		plan.addSignalGroupSettings(settingsFirst);
+		groups.addSignalGroupData(groupOne);
+		groupNumber++;
+		
+		SignalGroupData groupTwo = createSignalGroup(groupNumber, signalSystem, node);
+		for(SignalData signal : signalSystem.getSignalData().values()){
+			if(signal.getLinkId().equals(pair.getFirst().getLink().getId()) || signal.getLinkId().equals(pair.getSecond().getLink().getId())){
+				for(int i = 0; i < criticalSignalLanes.size(); i++){
+					if(signal.getLaneIds() != null && signal.getLaneIds().contains(criticalSignalLanes.get(i).getId()))
+						groupTwo.addSignalId(signal.getId());
+				}
+			}					
+		}
+		SignalGroupSettingsData settingsSecond = null;
+		if(first)
+			settingsSecond = createSetting(changeTime - (INTERGREENTIME + SECOND_PHASE_TIME), changeTime - INTERGREENTIME, node, groupTwo.getId());
+		else
+			settingsSecond = createSetting(cycle - (INTERGREENTIME + SECOND_PHASE_TIME), cycle - INTERGREENTIME, node, groupTwo.getId());
+		plan.addSignalGroupSettings(settingsSecond);
+		groups.addSignalGroupData(groupTwo);
+		groupNumber++;
+		
+	}
+
+	private void createOnePhase(int groupNumber, SignalSystemData signalSystem, Tuple<LinkVector, LinkVector> pair, SignalPlanData plan, int changeTime, int cycle, Node node, boolean first) {
+		SignalGroupData group = createSignalGroup(groupNumber, signalSystem, node);			
+		for(SignalData signal : signalSystem.getSignalData().values()){
+			if(signal.getLinkId().equals(pair.getFirst().getLink().getId()) || signal.getLinkId().equals(pair.getSecond().getLink().getId())){
+				group.addSignalId(signal.getId());					
+			}					
+		}
+		SignalGroupSettingsData settings = null;
+		if(first)
+			settings = createSetting(0, changeTime - INTERGREENTIME, node, group.getId());
+		else
+			settings = createSetting(changeTime, cycle - INTERGREENTIME, node, group.getId());
 		plan.addSignalGroupSettings(settings);
 		groups.addSignalGroupData(group);
+		groupNumber++;
+		
 	}
 
 	private Tuple<LinkVector, LinkVector> getInLinkPair(List<LinkVector> inLinks) {
@@ -1191,31 +1252,6 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		return group;
 	}
 
-	private void createPlansforPedestrianSignal(Node node, SignalSystemData system){
-		int cycle = 60;
-		SignalGroupData group = this.groups.getFactory().createSignalGroupData(system.getId(), Id.create("PedestrianSignal."+node.getId(), SignalGroup.class));
-		for(SignalData signal : system.getSignalData().values()){
-			group.addSignalId(signal.getId());
-		}
-		SignalSystemControllerData controller = this.control.getFactory()
-				.createSignalSystemControllerData(system.getId());
-		this.control.addSignalSystemControllerData(controller);
-		controller.setControllerIdentifier(DefaultPlanbasedSignalSystemController.IDENTIFIER);
-		SignalPlanData plan = this.control.getFactory().createSignalPlanData(Id.create("Pedestrian", SignalPlan.class));
-		controller.addSignalPlanData(plan);
-		plan.setStartTime(0.0);
-		plan.setEndTime(0.0);
-		plan.setCycleTime(cycle);
-		plan.setOffset(0);
-		SignalGroupSettingsData settings = control.getFactory()
-				.createSignalGroupSettingsData(Id.create("PedestrianSignal."+node.getId(), SignalGroup.class));
-		plan.addSignalGroupSettings(settings);
-		settings.setOnset(0);
-		settings.setDropping(cycle-15);
-		groups.addSignalGroupData(group);
-		
-	}
-	
 	private void createSimpleDefaultControllerPlanAndSetting(SignalSystemData signalSystem) {
 							
 		int cycle = 120;
@@ -1515,9 +1551,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						SignalSystemData system = this.systems.getFactory().createSignalSystemData(systemId);
 						this.systems.getSignalSystemData().put(systemId, system);
 					}
-					if(junctionLink){
-						this.junctionSignalSystems.add(systemId.toString());
-					}
+					
+						
 //					SignalData signal = this.systems.getFactory()
 //							.createSignalData(Id.create("Signal" + l.getId(), Signal.class));
 //					signal.setLinkId(Id.create(l.getId(), Link.class));
@@ -2201,6 +2236,14 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		public OsmNode(final long id, final Coord coord) {
 			this.id = id;
 			this.coord = coord;
+		}
+
+		public boolean isNotAtJunction() {
+			if(this.endPoint && this.ways.size() > 2)
+				return false;
+			if(!this.endPoint && this.ways.size() > 1)
+				return false;
+			return true;
 		}
 
 		private double getDistance(OsmNode node) {
