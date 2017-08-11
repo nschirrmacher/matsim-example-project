@@ -466,8 +466,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				// check to which level a way belongs
 				way.hierarchy = this.highwayDefaults.get(highway).hierarchy;
 
-				// first and last are counted twice, so they are kept in all
-				// cases
+				// first and last are saved as endpoints
 				this.nodes.get(way.nodes.get(0)).endPoint = true;
 				this.nodes.get(way.nodes.get(way.nodes.size() - 1)).endPoint = true;
 
@@ -508,6 +507,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						junctionNode.signalized = false;
 						otherNode.signalized = true;
 						log.info("signal push around roundabout");
+						roundaboutNodes.put(otherNode.id, otherNode);
+						
 					}
 				}
 			}
@@ -521,7 +522,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				OsmNode junctionNode = null;
 				String oneway = way.tags.get(TAG_ONEWAY);
 				
-				if(signalNode.signalized && signalNode.ways.size() == 1){
+				if(signalNode.signalized && !signalNode.isAtJunction()){
 					if ((oneway != null && !oneway.equals("-1")) || oneway == null) {
 						if(this.nodes.get(way.nodes.get(i+1)).ways.size() > 1){
 							junctionNode = this.nodes.get(way.nodes.get(i+1));
@@ -532,7 +533,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 							}
 						}
 					}
-					if(junctionNode != null && junctionNode.getDistance(signalNode) < 40){
+					if(junctionNode != null && signalNode.getDistance(junctionNode) < 40){
 						signalNode.signalized = false;
 						junctionNode.signalized = true;
 					}
@@ -547,32 +548,50 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 							}
 						}
 					}
-					if(junctionNode != null && junctionNode.getDistance(signalNode) < 40){
+					if(junctionNode != null && signalNode.getDistance(junctionNode) < 40){
 						signalNode.signalized = false;
 						junctionNode.signalized = true;
 					}					
 				}
 			}
 		}
-	
 		
-		
+		for (OsmWay way : this.ways.values()) {
+			for (int i = 1; i < way.nodes.size()-1; i++) {
+				OsmNode signalNode = this.nodes.get(way.nodes.get(i));
+				OsmNode endPoint = null;
+				String oneway = way.tags.get(TAG_ONEWAY);
+				
+				if(signalNode.signalized && !signalNode.isAtJunction()){
+					if ((oneway != null && !oneway.equals("-1")) || oneway == null) {
+						endPoint = this.nodes.get(way.nodes.get(way.nodes.size()-1));
+						if(endPoint.signalized && endPoint.isAtJunction() && signalNode.getDistance(endPoint) < 40)
+							signalNode.signalized = false;						
+					}
+					if ((oneway != null && !oneway.equals("yes") && !oneway.equals("true") && !oneway.equals("1")) || oneway == null) {
+						endPoint = this.nodes.get(way.nodes.get(0));
+						if(endPoint.signalized && endPoint.isAtJunction() && signalNode.getDistance(endPoint) < 40)
+							signalNode.signalized = false;							
+					}
+				}
+			}
+		}	
 		
 		// Trying to put more signals into nodes
-		for (OsmNode node : this.nodes.values()) {
+/*		for (OsmNode node : this.nodes.values()) {
 			if (node.signalized) {
 				for (OsmNode otherNode : this.nodes.values()) {
 					if (otherNode.signalized) {
 						if (node.getDistance(otherNode) < 25) {
 							if (node.ways.size() > otherNode.ways.size()) {
 								otherNode.signalized = false;
-								log.info("Signal deleted due to simplfication @ " + otherNode.id);
+								log.info("Signal deleted due to simplfication @ " + otherNode.id + " because of existing signal @ " + node.id);
 							}
 						}
 					}
 				}
 			}
-		}
+		}*/
 		
 		for (OsmWay way : this.ways.values()) {
 			String oneway = way.tags.get(TAG_ONEWAY);
@@ -607,7 +626,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				OsmNode signalNode = null;
 				for(int i = 0; i < way.nodes.size(); i++){
 					signalNode = this.nodes.get(way.nodes.get(i));
-					if(signalNode.signalized && signalNode.isNotAtJunction())
+					if(signalNode.signalized && !signalNode.isAtJunction())
 						signalNode.signalized = try2findRoundabout(signalNode, way, i);
 				}
 			}
@@ -972,38 +991,29 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	}
 	
 	private boolean try2findRoundabout(OsmNode signalNode, OsmWay way, int index) {
-		String junction;
-		OsmWay otherWay = null;
+		log.info("Trying to find Roundabout");
 		OsmNode endPoint = this.nodes.get(way.nodes.get(way.nodes.size()-1));
 		if(endPoint.ways.size() == 2){
 			for(OsmWay tempWay : endPoint.ways.values()){
 				if(!tempWay.equals(way))
-					otherWay = tempWay;
+					way = tempWay;
 				break;
 			}
-			if(otherWay == null)
-				return true;
-			junction = otherWay.tags.get(TAG_JUNCTION);
-			if(junction != null && junction.equals("roundabout")){
-				return false;
-			}
-			endPoint = this.nodes.get(otherWay.nodes.get(otherWay.nodes.size()-1));
+			endPoint = this.nodes.get(way.nodes.get(way.nodes.size()-1));
 			if(endPoint.ways.size() == 2)
 				return true;
 			else{
-				for(OsmWay tempWay : endPoint.ways.values()){
-					if(!tempWay.equals(otherWay)){
-						way = tempWay;
-						junction = way.tags.get(TAG_JUNCTION);
-						log.info("Trying to find Roundabout");
-						if(junction != null && junction.equals("roundabout")){
-							log.info("Roundabout found @ " + endPoint.id);
-							return false;
-						}
-					}
-				}								
+				if(roundaboutNodes.containsKey(endPoint.id)){
+					log.info("Roundabout found @ " + endPoint.id);
+					return false;
+				}
 			}
-		}			
+		}else{
+			if(roundaboutNodes.containsKey(endPoint.id)){
+				log.info("Roundabout found @ " + endPoint.id);
+				return false;
+			}	
+		}
 		return true;
 	}
 
@@ -2238,12 +2248,12 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			this.coord = coord;
 		}
 
-		public boolean isNotAtJunction() {
+		public boolean isAtJunction() {
 			if(this.endPoint && this.ways.size() > 2)
-				return false;
+				return true;
 			if(!this.endPoint && this.ways.size() > 1)
-				return false;
-			return true;
+				return true;
+			return false;
 		}
 
 		private double getDistance(OsmNode node) {
