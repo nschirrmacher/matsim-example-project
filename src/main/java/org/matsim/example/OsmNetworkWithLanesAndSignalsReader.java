@@ -135,10 +135,10 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			TAG_ONEWAY, TAG_ACCESS, TAG_TURNLANES, TAG_TURNLANESFORW, TAG_TURNLANESBACK, TAG_LANESFORW, TAG_LANESBACK,
 			TAG_RESTRICTION, TAG_SIGNALS };
 
-	private final static double PI = 3.141592654;
 	private final static int DEFAULT_LANE_OFFSET = 35;
 	private final static int INTERGREENTIME = 5;
 	private final static int SECOND_PHASE_TIME = 10;
+	private final static double SIGNAL_MERGE_DISTANCE = 40.0;
 	
 	private final static String ORIG_ID = "origId";
 	private final static String TYPE = "type";
@@ -533,7 +533,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 							}
 						}
 					}
-					if(junctionNode != null && signalNode.getDistance(junctionNode) < 40){
+					if(junctionNode != null && signalNode.getDistance(junctionNode) < SIGNAL_MERGE_DISTANCE){
 						signalNode.signalized = false;
 						junctionNode.signalized = true;
 					}
@@ -548,7 +548,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 							}
 						}
 					}
-					if(junctionNode != null && signalNode.getDistance(junctionNode) < 40){
+					if(junctionNode != null && signalNode.getDistance(junctionNode) < SIGNAL_MERGE_DISTANCE){
 						signalNode.signalized = false;
 						junctionNode.signalized = true;
 					}					
@@ -565,12 +565,12 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				if(signalNode.signalized && !signalNode.isAtJunction()){
 					if ((oneway != null && !oneway.equals("-1")) || oneway == null) {
 						endPoint = this.nodes.get(way.nodes.get(way.nodes.size()-1));
-						if(endPoint.signalized && endPoint.isAtJunction() && signalNode.getDistance(endPoint) < 40)
+						if(endPoint.signalized && endPoint.isAtJunction() && signalNode.getDistance(endPoint) < SIGNAL_MERGE_DISTANCE)
 							signalNode.signalized = false;						
 					}
 					if ((oneway != null && !oneway.equals("yes") && !oneway.equals("true") && !oneway.equals("1")) || oneway == null) {
 						endPoint = this.nodes.get(way.nodes.get(0));
-						if(endPoint.signalized && endPoint.isAtJunction() && signalNode.getDistance(endPoint) < 40)
+						if(endPoint.signalized && endPoint.isAtJunction() && signalNode.getDistance(endPoint) < SIGNAL_MERGE_DISTANCE)
 							signalNode.signalized = false;							
 					}
 				}
@@ -598,7 +598,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			if (oneway != null && !oneway.equals("-1")) {
 				OsmNode firstNode = this.nodes.get(way.nodes.get(0));
 				OsmNode lastNode = this.nodes.get(way.nodes.get(1));
-				if(way.nodes.size() == 2 && firstNode.getDistance(lastNode) < 25){
+				if(way.nodes.size() == 2 && firstNode.getDistance(lastNode) < SIGNAL_MERGE_DISTANCE){
 					if(firstNode.ways.size() == 2 && lastNode.ways.size() > 2 && firstNode.signalized && !lastNode.signalized){
 						firstNode.signalized = false;
 						lastNode.signalized = true;
@@ -610,7 +610,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			if (oneway != null && !oneway.equals("yes") && !oneway.equals("true") && !oneway.equals("1")) {
 				OsmNode firstNode = this.nodes.get(way.nodes.get(1));
 				OsmNode lastNode = this.nodes.get(way.nodes.get(0));
-				if(way.nodes.size() == 2 && firstNode.getDistance(lastNode) < 25){
+				if(way.nodes.size() == 2 && firstNode.getDistance(lastNode) < SIGNAL_MERGE_DISTANCE){
 					if(firstNode.ways.size() == 2 && lastNode.ways.size() > 2 && firstNode.signalized && !lastNode.signalized){
 						firstNode.signalized = false;
 						lastNode.signalized = true;
@@ -777,7 +777,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 							if(otherSuit == true)
 								break;
 							otherNode = nodes.get(way.nodes.get(i));
-							if(node.getDistance(otherNode) < 50 && !checkedNodes.contains(otherNode) && otherNode.ways.size() > 1 && otherNode.used && !node.equals(otherNode)){
+							if(node.getDistance(otherNode) < SIGNAL_MERGE_DISTANCE && !checkedNodes.contains(otherNode) && otherNode.ways.size() > 1 && otherNode.used && !node.equals(otherNode)){
 								for(OsmWay otherWay : otherNode.ways.values()){
 									String otherOneway = otherWay.tags.get(TAG_ONEWAY);
 									if(otherOneway != null){
@@ -1083,7 +1083,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		int changeTime = (int) ((lanesPair)/(lanesPair + thirdArm.getLink().getNumberOfLanes())*cycle);
 		boolean firstIsCritical = false;		
 		List<Lane> criticalSignalLanes = new ArrayList<Lane>();
-		if(pair.getFirst().getRotationToOtherInLink(thirdArm) > PI)
+		if(pair.getFirst().getRotationToOtherInLink(thirdArm) > Math.PI)
 			firstIsCritical = true;
 		if(firstIsCritical && lanes.getLanesToLinkAssignments().containsKey(pair.getFirst().getLink().getId())){
 			for(Lane lane : lanes.getLanesToLinkAssignments().get(pair.getFirst().getLink().getId()).getLanes().values()){
@@ -1113,7 +1113,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	private void createPlansforTwoWayJunction(Node node, SignalSystemData signalSystem){
 		List<LinkVector> inLinks = constructInLinkVectors(node);
 		double inLinksAngle = inLinks.get(0).getRotationToOtherInLink(inLinks.get(1));
-		if(inLinksAngle > 3/4 * PI && inLinksAngle < 5/4 * PI ){
+		if(inLinksAngle > 3/4 * Math.PI && inLinksAngle < 5/4 * Math.PI ){
 			int cycle = 90;
 			SignalGroupData group = this.groups.getFactory().createSignalGroupData(signalSystem.getId(), Id.create("PedestrianSignal."+node.getId(), SignalGroup.class));
 			for(SignalData signal : signalSystem.getSignalData().values()){
@@ -1216,11 +1216,11 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	private Tuple<LinkVector, LinkVector> getInLinkPair(List<LinkVector> inLinks) {
 		LinkVector first = inLinks.get(0);
 		LinkVector second = inLinks.get(1);
-		double diff = Math.abs(first.getRotationToOtherInLink(second) - PI);
+		double diff = Math.abs(first.getRotationToOtherInLink(second) - Math.PI);
 		double otherDiff;
 		for(int i = 0; i < inLinks.size()-1; i++){
 			for( int j = i+1; j < inLinks.size(); j++){
-				otherDiff = Math.abs(inLinks.get(i).getRotationToOtherInLink(inLinks.get(j)) - PI);
+				otherDiff = Math.abs(inLinks.get(i).getRotationToOtherInLink(inLinks.get(j)) - Math.PI);
 				if(otherDiff < diff){
 					first = inLinks.get(i);
 					second = inLinks.get(j);
@@ -1377,7 +1377,6 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		double freespeedFactor = defaults.freespeedFactor;
 		boolean oneway = defaults.oneway;
 		boolean onewayReverse = false;
-		boolean junctionLink = false;
 		// TODO: maybe add to defaults
 		// ***************************
 
@@ -1387,8 +1386,6 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			// if "junction" is not set in tags, get() returns null and equals()
 			// evaluates to false
 			oneway = true;
-			junctionLink = true;
-			log.info("junctionLink found");
 		}
 
 		// check tag "oneway"
@@ -1625,6 +1622,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	// created - useful?************
 	// **************************************************************************************************
 	private void createLanes(final Link l, final Lanes lanes, final double nofLanes, long id) {
+		OsmHighwayDefaults defaults = this.highwayDefaults.get(l.getAttributes().getAttribute(TYPE).toString());
 		LanesFactory factory = lanes.getFactory();
 		LanesToLinkAssignment lanesForLink = factory.createLanesToLinkAssignment(Id.create(l.getId(), Link.class));
 		lanes.addLanesToLinkAssignment(lanesForLink);
@@ -1639,9 +1637,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			}else{
 				lane.setStartsAtMeterFromLinkEnd(l.getLength()/2);
 			}
-			double capacity = 3600;
 			//function for capacity missing TODO
-				lane.setCapacityVehiclesPerHour(capacity);
+				lane.setCapacityVehiclesPerHour(defaults.laneCapacity);
 			//
 			//origLane.setCapacityVehiclesPerHour(origLane.getCapacityVehiclesPerHour()+capacity);
 			//origLane.setNumberOfRepresentedLanes(origLane.getNumberOfRepresentedLanes()+1);
@@ -1664,11 +1661,13 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		
 		Lane rightLane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
 				.get(Id.create("Lane" + link.getId() + "." + ((int) link.getNumberOfLanes()), Lane.class));
+		origLane.addToLaneId(rightLane.getId());
+		origLane.setCapacityVehiclesPerHour(origLane.getCapacityVehiclesPerHour()+rightLane.getCapacityVehiclesPerHour());	
 		for (int i = (int) link.getNumberOfLanes() - 1; i > 0; i--) {
 			Lane leftLane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
 					.get(Id.create("Lane" + link.getId() + "." + i, Lane.class));
-			origLane.addToLaneId(rightLane.getId());
-			origLane.setCapacityVehiclesPerHour(origLane.getCapacityVehiclesPerHour()+rightLane.getCapacityVehiclesPerHour());
+			origLane.addToLaneId(leftLane.getId());
+			origLane.setCapacityVehiclesPerHour(origLane.getCapacityVehiclesPerHour()+leftLane.getCapacityVehiclesPerHour());
 			if (rightLane.getToLinkIds().equals(leftLane.getToLinkIds())) {
 				leftLane.setNumberOfRepresentedLanes(
 						leftLane.getNumberOfRepresentedLanes() + rightLane.getNumberOfRepresentedLanes());
@@ -1679,15 +1678,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				LanesToLinkAssignment linkLanes = lanes.getLanesToLinkAssignments().get(link.getId());
 				origLane.getToLaneIds().remove(rightLane.getId());
 				linkLanes.getLanes().remove(rightLane.getId());
-			} else {
-				// log.info("ToLinks are different for Lane " +
-				// leftLane.getId().toString() + " and Lane " +
-				// rightLane.getId().toString());
 			}
 			rightLane = leftLane;
-		}
-		origLane.addToLaneId(rightLane.getId());
-		origLane.setCapacityVehiclesPerHour(origLane.getCapacityVehiclesPerHour()+rightLane.getCapacityVehiclesPerHour());		
+		}			
 	}
 /*
 	private Lane createLane(final Link l, final Lanes lanes) {
@@ -1849,16 +1842,16 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		int reverseLink = 0;
 		int straightestLink = 0;
 		for(int i = 1; i < toLinks.size(); i++){
-			if(Math.abs(toLinks.get(i).getRotation()-PI) < Math.abs(toLinks.get(straightLink).getRotation()-PI))
+			if(Math.abs(toLinks.get(i).getRotation()-Math.PI) < Math.abs(toLinks.get(straightLink).getRotation()-Math.PI))
 				straightLink = i;
-			if(Math.abs(toLinks.get(i).getRotation()-PI) > Math.abs(toLinks.get(reverseLink).getRotation()-PI))
+			if(Math.abs(toLinks.get(i).getRotation()-Math.PI) > Math.abs(toLinks.get(reverseLink).getRotation()-Math.PI))
 				reverseLink = i;
 		}
-		if(toLinks.get(straightLink).getRotation()<5/6*PI || toLinks.get(straightLink).getRotation()>7/6*PI){
+		if(toLinks.get(straightLink).getRotation()<5/6*Math.PI || toLinks.get(straightLink).getRotation()>7/6*Math.PI){
 			straightestLink = straightLink;
 			straightLink = -1;
 		}	
-		if(toLinks.get(reverseLink).getRotation()>1/6*PI && toLinks.get(reverseLink).getRotation()<11/6*PI)
+		if(toLinks.get(reverseLink).getRotation()>1/6*Math.PI && toLinks.get(reverseLink).getRotation()<11/6*Math.PI)
 			reverseLink = -1;		
 		if (toLinks.size() == 1) {
 			lanes.getLanesToLinkAssignments().remove(link.getId());
@@ -1940,11 +1933,11 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		// List<LinkVector> removeLinks = new ArrayList<LinkVector>();
 		int alignmentAnte;
 		LinkVector throughLink = toLinks.get(0);	
-		double minDiff = PI;
+		double minDiff = Math.PI;
 		LinkVector reverseLink = toLinks.get(0);
 		double maxDiff = 0;
 		for (LinkVector lvec : toLinks) {
-			double diff = Math.abs(lvec.dirAlpha - PI);
+			double diff = Math.abs(lvec.dirAlpha - Math.PI);
 			if (diff < minDiff) {
 				minDiff = diff;
 				throughLink = lvec;
@@ -1954,7 +1947,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				reverseLink = lvec;
 			}
 		}
-		if(reverseLink.getRotation() < 11/6*PI && reverseLink.getRotation() > 1/6*PI)
+		if(reverseLink.getRotation() < 11/6*Math.PI && reverseLink.getRotation() > 1/6*Math.PI)
 			reverseLink = null;
 		
 		while (!laneStack.isEmpty()) {
@@ -1976,7 +1969,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			if (tempDir < 0 && tempDir > -5) { // all right directions (right,
 												// slight_right,sharp_right)
 				for (LinkVector lvec : tempLinks) {
-					if (lvec.dirAlpha < 11 * PI / 12)
+					if (lvec.dirAlpha < 11 * Math.PI / 12)
 						tempLinks.add(lvec);
 				}
 				if (tempLinks.size() == 1) { // if there is just one "right"
@@ -1988,7 +1981,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 							lane.addToLinkId(lvec.getLink().getId());
 					}
 					if (tempDir == -2) { // lane direction: "slight_right"
-						if (tempLinks.get(0).dirAlpha < PI / 2)
+						if (tempLinks.get(0).dirAlpha < Math.PI / 2)
 							lane.addToLinkId(tempLinks.get(1).getLink().getId());
 						else
 							lane.addToLinkId(tempLinks.get(0).getLink().getId());
@@ -2006,7 +1999,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				if(alignmentAnte == 0 && it == 1)
 					alignmentAnte = -10;
 				for (LinkVector lvec : toLinks) {
-					if (lvec.dirAlpha > 13 * PI / 12)
+					if (lvec.dirAlpha > 13 * Math.PI / 12)
 						tempLinks.add(lvec);
 				}
 				if (tempLinks.size() == 1) { 	// if there is just one "left"
@@ -2019,7 +2012,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 								lane.addToLinkId(lvec.getLink().getId());
 					}
 					if (tempDir == 2) { // lane direction: "slight_left" FIXME: not perfect yet
-						if (tempLinks.get(1).dirAlpha > 3 * PI / 2 || !tempLinks.get(1).equals(reverseLink))
+						if (tempLinks.get(1).dirAlpha > 3 * Math.PI / 2 || !tempLinks.get(1).equals(reverseLink))
 							lane.addToLinkId(tempLinks.get(0).getLink().getId());
 						else
 							lane.addToLinkId(tempLinks.get(1).getLink().getId());
@@ -2151,14 +2144,14 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			if (this.y > 0) {
 				this.alpha = ref.angle(linkV);
 			} else {
-				this.alpha = 2 * PI - ref.angle(linkV);
+				this.alpha = 2 * Math.PI - ref.angle(linkV);
 			}
 		}
 
 		public void calculateRotation(LinkVector linkVector) {
-			this.dirAlpha = this.alpha - linkVector.getAlpha() - PI;			
+			this.dirAlpha = this.alpha - linkVector.getAlpha() - Math.PI;			
 			if (this.dirAlpha < 0) {
-				this.dirAlpha += 2 * PI;
+				this.dirAlpha += 2 * Math.PI;
 			}
 
 		}
@@ -2174,7 +2167,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		public double getRotationToOtherInLink(LinkVector linkVector){
 			double rotation = linkVector.getAlpha() - this.alpha;
 			if (rotation < 0) {
-				rotation += 2 * PI;
+				rotation += 2 * Math.PI;
 			}
 			return rotation;
 		}
