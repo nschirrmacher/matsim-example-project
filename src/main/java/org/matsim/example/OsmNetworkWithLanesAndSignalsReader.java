@@ -142,17 +142,19 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	
 	private final static String ORIG_ID = "origId";
 	private final static String TYPE = "type";
+	private final static String TO_LINKS_ANGLES = "toLinksAngles";
 	
 	private final static String NON_CRIT_LANES = "nonCritLanes";
 	private final static String NON_CRIT_LINK = "nonCritLinks";
 	private final static String CRIT_LANES = "critLanes";
 	private final static String FORBIDDEN_LINKS = "forbiddenLanes";
 	
-	
+		
 	private final Map<Long, OsmNode> nodes = new HashMap<Long, OsmNode>();
 	private final Map<Long, OsmWay> ways = new HashMap<Long, OsmWay>();
 	private final Map<Id<Link>, LaneStack> laneStacks = new HashMap<Id<Link>, LaneStack>();
 	private final Map<Long, OsmNode> roundaboutNodes = new HashMap<Long, OsmNode>();
+	private final Map<Id<Link>, Map<Id<Link>,Double>> allToLinksAngles = new HashMap<Id<Link>, Map<Id<Link>,Double>>();
 	
 	private final Set<String> unknownHighways = new HashSet<String>();
 	private final Set<String> unknownMaxspeedTags = new HashSet<String>();
@@ -769,7 +771,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 		
 		for (OsmNode node : this.nodes.values()) {			
-			if (!checkedNodes.contains(node) && node.used && node.ways.size() > 1) {
+			if (!checkedNodes.contains(node) && node.used && node.isAtJunction()) {
 				boolean suit = false;
 				OsmNode otherNode = null;
 				boolean otherSuit = false;
@@ -777,20 +779,19 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					String oneway = way.tags.get(TAG_ONEWAY);
 					if(oneway != null){
 						suit = true;
-					}else{
-						for (int i = 0; i < way.nodes.size(); i++) {
-							if(otherSuit == true)
-								break;
-							otherNode = nodes.get(way.nodes.get(i));
-							if(node.getDistance(otherNode) < SIGNAL_MERGE_DISTANCE && !checkedNodes.contains(otherNode) && otherNode.ways.size() > 1 && otherNode.used && !node.equals(otherNode)){
-								for(OsmWay otherWay : otherNode.ways.values()){
-									String otherOneway = otherWay.tags.get(TAG_ONEWAY);
-									if(otherOneway != null){
-										otherSuit = true;
-										break;
-									}
+					}
+					for (int i = 0; i < way.nodes.size(); i++) {
+						if(otherSuit == true)
+							break;
+						otherNode = nodes.get(way.nodes.get(i));
+						if(node.getDistance(otherNode) < SIGNAL_MERGE_DISTANCE && !checkedNodes.contains(otherNode) && otherNode.isAtJunction() && otherNode.used && !node.equals(otherNode)){
+							for(OsmWay otherWay : otherNode.ways.values()){
+								String otherOneway = otherWay.tags.get(TAG_ONEWAY);
+								if(otherOneway != null){
+									otherSuit = true;
+									break;
 								}
-							}							
+							}
 						}
 					}
 					if(suit == true && otherSuit == true)
@@ -888,19 +889,21 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			if(link.getToNode().getOutLinks().size() > 1){
 				if (link.getNumberOfLanes() > 1) {
 					fillLanesAndCheckRestrictions(link);
-				} else if (!nodes.get(Long.valueOf(link.getToNode().getId().toString())).restrictions.isEmpty()) {
+				} else { 
+					List<LinkVector> linkVectors = constructOrderedOutLinkVectors(link);
+					if (!nodes.get(Long.valueOf(link.getToNode().getId().toString())).restrictions.isEmpty()) {
 					// if there exists an Restriction in the ToNode, we want to
 					// create a Lane to represent the restriction,
 					// as the toLinks cannot be restricted otherwise 
-					createLanes(link, lanes, 1, Long.valueOf(link.getId().toString()));
-					List<LinkVector> linkVectors = constructOrderedOutLinkVectors(link);
-					removeRestrictedLinks(link, linkVectors);
-					LanesToLinkAssignment l4l = lanes.getLanesToLinkAssignments().get(link.getId());
-					Id<Lane> LaneId = Id.create("Lane" + link.getId() + ".1", Lane.class);
-					for (LinkVector lvec : linkVectors) {
-						Id<Link> toLink = lvec.getLink().getId();
-						Lane lane = l4l.getLanes().get(LaneId);
-						lane.addToLinkId(toLink);
+						createLanes(link, lanes, 1, Long.valueOf(link.getId().toString()));						
+						removeRestrictedLinks(link, linkVectors);
+						LanesToLinkAssignment l2l = lanes.getLanesToLinkAssignments().get(link.getId());
+						Id<Lane> LaneId = Id.create("Lane" + link.getId() + ".1", Lane.class);
+						for (LinkVector lvec : linkVectors) {
+							Id<Link> toLink = lvec.getLink().getId();
+							Lane lane = l2l.getLanes().get(LaneId);
+							lane.addToLinkId(toLink);
+						}	
 					}
 				}
 			}else if(lanes.getLanesToLinkAssignments().containsKey(link.getId())){
@@ -1867,6 +1870,13 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			toLinks.add(l);
 		}
 		List<LinkVector> toLinkVectors = orderToLinks(fromLink, toLinks);
+		Map<Id<Link>,Double> toLinksAngles = new HashMap<Id<Link>,Double>();
+		for(LinkVector lvec : toLinkVectors){
+			toLinksAngles.put(lvec.getLink().getId(), lvec.getRotation());
+		}
+		//FIXME Can I put a Map to attributes?
+		fromLink.getAttributes().putAttribute(TO_LINKS_ANGLES, toLinksAngles);
+		this.allToLinksAngles.put(fromLink.getId(), toLinksAngles);
 		return toLinkVectors;
 	}
 
@@ -2324,6 +2334,16 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				return true;
 			if(!this.endPoint && this.ways.size() > 1)
 				return true;
+			if(this.endPoint && this.ways.size() == 2){
+				for(OsmWay way : this.ways.values()){
+					for(int i = 0; i < way.nodes.size(); i++){
+						if(this.id == (way.nodes.get(i))){
+							if(i != 0 && i != way.nodes.size() - 1)
+								return true;
+						}
+					}						
+				}					
+			}
 			return false;
 		}
 
