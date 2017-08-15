@@ -115,6 +115,7 @@ public class RunPNetworkGenerator {
 		
 		LanesWriter writerDelegate = new LanesWriter(scenario.getLanes());
 		writerDelegate.write(config.network().getLaneDefinitionsFile());
+		System.out.println("******** Network-Reading completed -  with Lanes and Signals ********");
 	}
 
 }

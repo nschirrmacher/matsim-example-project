@@ -143,6 +143,11 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	private final static String ORIG_ID = "origId";
 	private final static String TYPE = "type";
 	
+	private final static String NON_CRIT_LANES = "nonCritLanes";
+	private final static String NON_CRIT_LINK = "nonCritLinks";
+	private final static String CRIT_LANES = "critLanes";
+	private final static String FORBIDDEN_LINKS = "forbiddenLanes";
+	
 	
 	private final Map<Long, OsmNode> nodes = new HashMap<Long, OsmNode>();
 	private final Map<Long, OsmWay> ways = new HashMap<Long, OsmWay>();
@@ -1107,7 +1112,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			createOnePhase(groupNumber, signalSystem, pair, plan, changeTime, cycle, node, true);
 			groupNumber++;
 		}
-		createOnePhase(groupNumber, signalSystem, pair, plan, changeTime, cycle, node, false);
+		Tuple<LinkVector, LinkVector> phantomPair= new Tuple<LinkVector, LinkVector>(thirdArm, null);
+		createOnePhase(groupNumber, signalSystem, phantomPair, plan, changeTime, cycle, node, false);
 	}
 
 	private void createPlansforTwoWayJunction(Node node, SignalSystemData signalSystem){
@@ -1166,6 +1172,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					groupOne.addSignalId(signal.getId());					
 			}					
 		}
+		fillConflictingLanesData(pair, criticalSignalLanes);
 		SignalGroupSettingsData settingsFirst = null;
 		if(first)
 			settingsFirst = createSetting(0, changeTime - (2 * INTERGREENTIME + SECOND_PHASE_TIME), node, groupOne.getId());
@@ -1174,7 +1181,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		plan.addSignalGroupSettings(settingsFirst);
 		groups.addSignalGroupData(groupOne);
 		groupNumber++;
-		
+				
 		SignalGroupData groupTwo = createSignalGroup(groupNumber, signalSystem, node);
 		for(SignalData signal : signalSystem.getSignalData().values()){
 			if(signal.getLinkId().equals(pair.getFirst().getLink().getId()) || signal.getLinkId().equals(pair.getSecond().getLink().getId())){
@@ -1194,11 +1201,91 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		groupNumber++;
 		
 	}
+	
+	//TODO this method must be revised
+	private void fillConflictingLanesData(Tuple<LinkVector, LinkVector> pair, List<Lane> criticalSignalLanes) {
+		setConflictingAndNonConflictingLanesToLanes(pair.getFirst().getLink(), pair.getSecond().getLink(), criticalSignalLanes);
+		setConflictingAndNonConflictingLanesToLanes(pair.getSecond().getLink(), pair.getFirst().getLink(), criticalSignalLanes);
+	}
+
+	//TODO must remove *.ol
+	private void setConflictingAndNonConflictingLanesToLanes(Link firstLink, Link secondLink, List<Lane> criticalSignalLanes) {
+		LanesToLinkAssignment l2l = lanes.getLanesToLinkAssignments().get(firstLink.getId());
+		LanesToLinkAssignment otherl2l = lanes.getLanesToLinkAssignments().get(secondLink.getId());
+		List<Lane> nonCritLanes = new ArrayList<Lane>();
+		List<Lane> critLanes = new ArrayList<Lane>();
+		List<Link> forbiddenLinks = new ArrayList<Link>();
+		
+		if(l2l == null)
+			return;
+		if(criticalSignalLanes != null){
+			for(Lane lane : l2l.getLanes().values()) {
+				
+				for(Lane otherLane : l2l.getLanes().values()) {
+					if(!otherLane.equals(lane))
+						nonCritLanes.add(otherLane);					
+				}
+				if(otherl2l != null){
+					if(!criticalSignalLanes.contains(lane)) {
+						for(Lane otherLane : otherl2l.getLanes().values()) {
+							if(!criticalSignalLanes.contains(otherLane))
+								nonCritLanes.add(otherLane);
+							else
+								critLanes.add(otherLane);
+						}
+					}else{
+						for(Lane otherLane : otherl2l.getLanes().values()) {
+							if(criticalSignalLanes.contains(otherLane))
+								nonCritLanes.add(otherLane);
+							else
+								critLanes.add(otherLane);
+						}
+					}
+				}
+				for(Link link : firstLink.getToNode().getInLinks().values()) {
+					if(!link.equals(firstLink) && !link.equals(secondLink))
+						forbiddenLinks.add(link);
+				}
+				lane.getAttributes().putAttribute(NON_CRIT_LANES, nonCritLanes);
+				if(otherl2l == null)
+					lane.getAttributes().putAttribute(NON_CRIT_LINK, secondLink);
+				else
+					lane.getAttributes().putAttribute(CRIT_LANES, critLanes);
+				lane.getAttributes().putAttribute(FORBIDDEN_LINKS, forbiddenLinks);
+			}
+		}else{
+			for(Lane lane : l2l.getLanes().values()) {
+				for(Lane otherLane : l2l.getLanes().values()) {
+					if(!otherLane.equals(lane))
+						nonCritLanes.add(otherLane);
+				}
+				if(otherl2l != null) {
+					for(Lane otherLane : otherl2l.getLanes().values()) {
+						nonCritLanes.add(otherLane);
+					}
+				}
+				for(Link link : firstLink.getToNode().getInLinks().values()) {
+					if(!link.equals(firstLink) && !link.equals(secondLink))
+						forbiddenLinks.add(link);
+				}
+				lane.getAttributes().putAttribute(NON_CRIT_LANES, nonCritLanes);
+				if(otherl2l == null)
+					lane.getAttributes().putAttribute(NON_CRIT_LINK, secondLink);
+				else
+					lane.getAttributes().putAttribute(CRIT_LANES, null);
+				lane.getAttributes().putAttribute(FORBIDDEN_LINKS, forbiddenLinks);
+			}
+		}
+	}
 
 	private void createOnePhase(int groupNumber, SignalSystemData signalSystem, Tuple<LinkVector, LinkVector> pair, SignalPlanData plan, int changeTime, int cycle, Node node, boolean first) {
-		SignalGroupData group = createSignalGroup(groupNumber, signalSystem, node);			
+		SignalGroupData group = createSignalGroup(groupNumber, signalSystem, node);
+		Id<Link> firstLinkId = pair.getFirst().getLink().getId();
+		Id<Link> secondLinkId = null;
+		if(pair.getSecond() != null)
+			secondLinkId = pair.getSecond().getLink().getId();
 		for(SignalData signal : signalSystem.getSignalData().values()){
-			if(signal.getLinkId().equals(pair.getFirst().getLink().getId()) || signal.getLinkId().equals(pair.getSecond().getLink().getId())){
+			if(signal.getLinkId().equals(firstLinkId) || signal.getLinkId().equals(secondLinkId)){
 				group.addSignalId(signal.getId());					
 			}					
 		}
@@ -1639,15 +1726,6 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			}
 			//function for capacity missing TODO
 				lane.setCapacityVehiclesPerHour(defaults.laneCapacity);
-			//
-			//origLane.setCapacityVehiclesPerHour(origLane.getCapacityVehiclesPerHour()+capacity);
-			//origLane.setNumberOfRepresentedLanes(origLane.getNumberOfRepresentedLanes()+1);
-			// lane.setNumberOfRepresentedLanes(number); // hier setzen
-			// lane.setAlignment(alignment); // wie du moechtest
-			// lane.setCapacityVehiclesPerHour(capacity); // erst auf basis des
-			// kreuzungslayouts
-			// lane.addToLinkId(Id.createLinkId(0)); usw. spaeter fuellen
-			//origLane.addToLaneId(lane.getId());
 			lanesForLink.addLane(lane);
 		}
 	}
