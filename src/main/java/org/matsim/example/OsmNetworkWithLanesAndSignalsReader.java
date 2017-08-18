@@ -1955,6 +1955,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 
 	private void setToLinksForLanesDefault(Link link, List<LinkVector> toLinks) {
 		link.getAttributes().putAttribute(TO_LINK_REFERENCE, "Estimation");
+		// TODO bitte in den lanes abspeichern
 		int straightLink = 0;
 		int reverseLink = 0;
 		int straightestLink = 0;

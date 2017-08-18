@@ -87,7 +87,6 @@ public class SignalSystemsDataConsistencyChecker {
 		
 		for (Tuple<Id<Signal>, Id<SignalSystem>> tuple : malformedSignals){
 			signalsData.getSignalSystemsData().getSignalSystemData().get(tuple.getSecond()).getSignalData().remove(tuple.getFirst());
-			// TODO remove control (TODO) of this signal and delete it from its group (check)			
 			for(SignalGroupData sigGroup : this.signalsData.getSignalGroupsData().getSignalGroupDataBySignalSystemId().get(tuple.getSecond()).values()){
 				if(sigGroup.getSignalIds().contains(tuple.getFirst())){
 					sigGroup.getSignalIds().remove(tuple.getFirst());					
@@ -95,17 +94,17 @@ public class SignalSystemsDataConsistencyChecker {
 			}
 		}
 		
-		SignalControlData control = this.signalsData.getSignalControlData();
-		for (SignalSystemControllerData  controller : control.getSignalSystemControllerDataBySystemId().values()) {
-			Map<Id<SignalGroup>, SignalGroupData> signalGroups = this.signalsData.getSignalGroupsData().getSignalGroupDataBySystemId(controller.getSignalSystemId());
-			for (SignalPlanData plan : controller.getSignalPlanData().values()) {
-				for (SignalGroupSettingsData settings : plan.getSignalGroupSettingsDataByGroupId().values()) {
-					if (! signalGroups.containsKey(settings.getSignalGroupId())){
-						
-					}
-				}
-			}
-		}
+//		SignalControlData control = this.signalsData.getSignalControlData();
+//		for (SignalSystemControllerData  controller : control.getSignalSystemControllerDataBySystemId().values()) {
+//			Map<Id<SignalGroup>, SignalGroupData> signalGroups = this.signalsData.getSignalGroupsData().getSignalGroupDataBySystemId(controller.getSignalSystemId());
+//			for (SignalPlanData plan : controller.getSignalPlanData().values()) {
+//				for (SignalGroupSettingsData settings : plan.getSignalGroupSettingsDataByGroupId().values()) {
+//					if (! signalGroups.containsKey(settings.getSignalGroupId())){
+//						
+//					}
+//				}
+//			}
+//		}
 		
 		
 		for (Map<Id<SignalGroup>, SignalGroupData> sigGroups : this.signalsData.getSignalGroupsData().getSignalGroupDataBySignalSystemId().values()) {
@@ -124,17 +123,19 @@ public class SignalSystemsDataConsistencyChecker {
 		}
 		
 		for(SignalSystemData system : signalsData.getSignalSystemsData().getSignalSystemData().values()){
-			if(system.getSignalData().isEmpty())
+			if (system.getSignalData().isEmpty()) {
 				emptySystems.add(system.getId());
+				if (!signalsData.getSignalGroupsData().getSignalGroupDataBySystemId(system.getId()).isEmpty()){
+					log.warn("a system contains no signals but groups");
+				}
+			}
 		}
 		
 		for(Id<SignalSystem> systemId : emptySystems){
 			signalsData.getSignalSystemsData().getSignalSystemData().remove(systemId);
 			signalsData.getSignalControlData().getSignalSystemControllerDataBySystemId().remove(systemId);
+			signalsData.getSignalGroupsData().getSignalGroupDataBySignalSystemId().remove(systemId);
 		}
-				
-		// TODO remove empty groups
-		// TODO remove empty systems and their control
 	}
 
 	private void checkSignalToLinkMatching() {
