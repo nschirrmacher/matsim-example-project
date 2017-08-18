@@ -641,6 +641,15 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						signalNode.signalized = tryTofindRoundabout(signalNode, way, i);
 				}
 			}
+			OsmNode node = this.nodes.get(way.nodes.get(0));
+			if(node.endPoint && node.ways.size() == 1){
+				node.signalized = false;
+			}
+			node = this.nodes.get(way.nodes.get(way.nodes.size()-1));
+			if(node.endPoint && node.ways.size() == 1){
+				node.signalized = false;
+			}
+			
 		}
 		
 		if (!this.keepPaths) {
@@ -989,7 +998,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			if(this.systems.getSignalSystemData().containsKey(systemId)){
 				SignalSystemData signalSystem = this.systems.getSignalSystemData().get(systemId);
 				if(node.getInLinks().size() == 1){					
-					createSimpleDefaultControllerPlanAndSetting(signalSystem);
+					createPlansForOneWayJunction(signalSystem, node);
 					log.info("single signal found @ " + node.getId());
 					badCounter++;
 				}
@@ -1034,7 +1043,6 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				
 				if(node.getInLinks().size() > 4){
 					//is it even possible?
-					createSimpleDefaultControllerPlanAndSetting(signalSystem);
 					throw new RuntimeException("Signal system with more than four in-links detected");
 				}
 			}
@@ -1398,27 +1406,23 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		return group;
 	}
 
-	private void createSimpleDefaultControllerPlanAndSetting(SignalSystemData signalSystem) {
-							
+	private void createPlansForOneWayJunction(SignalSystemData signalSystem, Node node) {
 		int cycle = 90;
-	
-		SignalUtils.createAndAddSignalGroups4Signals(this.groups, signalSystem);
-		SignalSystemControllerData controller = this.control.getFactory()
-				.createSignalSystemControllerData(signalSystem.getId());
-		this.control.addSignalSystemControllerData(controller);
-		controller.setControllerIdentifier(DefaultPlanbasedSignalSystemController.IDENTIFIER);
-		SignalPlanData plan = this.control.getFactory().createSignalPlanData(Id.create("1", SignalPlan.class));
-		controller.addSignalPlanData(plan);
-		plan.setStartTime(0.0);
-		plan.setEndTime(0.0);
-		plan.setCycleTime(cycle);
-		plan.setOffset(0);
-		SignalGroupSettingsData settings = control.getFactory()
-				.createSignalGroupSettingsData(Id.create("1", SignalGroup.class));
-		plan.addSignalGroupSettings(settings);
-		settings.setOnset(0);
-		settings.setDropping(55);
+		int changeTime = 60;
+		SignalGroupData group = createSignalGroup(1, signalSystem, node);
+			
+		for(SignalData signal : signalSystem.getSignalData().values())
+			group.addSignalId(signal.getId());	
 		
+		SignalSystemControllerData controller = createController(signalSystem);
+		SignalPlanData plan = createPlan(node, cycle);
+		controller.addSignalPlanData(plan);
+		SignalGroupSettingsData settings = null;
+		settings = createSetting(0, changeTime - INTERGREENTIME, node, group.getId());
+		
+		plan.addSignalGroupSettings(settings);
+		groups.addSignalGroupData(group);	
+				
 	}
 
 	private void findTwoPhaseSignalLanes(Tuple<LinkVector, LinkVector> pair, List<Lane> criticalSignalLanes){
