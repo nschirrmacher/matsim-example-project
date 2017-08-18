@@ -1,18 +1,34 @@
 package org.matsim.example;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
+
+import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.contrib.signals.SignalSystemsConfigGroup;
 import org.matsim.contrib.signals.data.SignalsData;
 import org.matsim.contrib.signals.data.SignalsDataLoader;
 import org.matsim.contrib.signals.data.SignalsScenarioWriter;
+import org.matsim.contrib.signals.data.signalgroups.v20.SignalData;
+import org.matsim.contrib.signals.data.signalsystems.v20.SignalSystemData;
+import org.matsim.contrib.signals.model.Signal;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.config.ConfigWriter;
+import org.matsim.core.network.algorithms.NetworkCalcTopoType;
+import org.matsim.core.network.algorithms.NetworkCleaner;
 import org.matsim.core.network.io.NetworkWriter;
 import org.matsim.core.scenario.ScenarioUtils;
 import org.matsim.core.utils.geometry.CoordinateTransformation;
 import org.matsim.core.utils.geometry.transformations.TransformationFactory;
+import org.matsim.dgretherCopies.LanesConsistencyChecker;
+import org.matsim.dgretherCopies.NetworkLanesSignalsSimplifier;
+import org.matsim.dgretherCopies.SignalControlDataConsistencyChecker;
+import org.matsim.dgretherCopies.SignalGroupsDataConsistencyChecker;
+import org.matsim.dgretherCopies.SignalSystemsDataConsistencyChecker;
 import org.matsim.lanes.data.Lanes;
 import org.matsim.lanes.data.LanesWriter;
 
@@ -53,7 +69,9 @@ public class RunPNetworkGenerator {
 		Scenario scenario = ScenarioUtils.createScenario(config);
 		scenario.addScenarioElement(SignalsData.ELEMENT_NAME, new SignalsDataLoader(config).loadSignalsData());
 		
+		
 		SignalsData signalsData = (SignalsData) scenario.getScenarioElement(SignalsData.ELEMENT_NAME);
+				
 		//added Lanes
 		Lanes lanes = scenario.getLanes();
 		
@@ -70,15 +88,19 @@ public class RunPNetworkGenerator {
 		 * to every other link. This may not be the case in the initial network converted from OpenStreetMap.
 		 */
 		
-//		new NetworkCleaner().run(network);
-//		
-//		LanesConsistencyChecker lanesConsistency = new LanesConsistencyChecker(network, lanes);
-//		lanesConsistency.checkConsistency();
-//		SignalSystemsDataConsistencyChecker signalsConsistency = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
-//		signalsConsistency.checkConsistency();
-		// TODO signal contol + groups consistency checker
+		new NetworkCleaner().run(network);
+		
+		LanesConsistencyChecker lanesConsistency = new LanesConsistencyChecker(network, lanes);
+		lanesConsistency.checkConsistency();
+		SignalSystemsDataConsistencyChecker signalsConsistency = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
+		signalsConsistency.checkConsistency();
+		SignalGroupsDataConsistencyChecker signalGroupsConsistency = new SignalGroupsDataConsistencyChecker(scenario);
+		signalGroupsConsistency.checkConsistency();
+		SignalControlDataConsistencyChecker signalControlConsistency = new SignalControlDataConsistencyChecker(scenario);
+		signalControlConsistency.checkConsistency();
 				
-		// TODO check if that works
+						
+		// TODO check if that works - does not work because of missing Links that are assigned to Signals
 		// run a network simplifier to merge links with same attributes
 //		Set<Integer> nodeTypesToMerge = new TreeSet<Integer>();
 //		nodeTypesToMerge.add(NetworkCalcTopoType.PASS1WAY); // PASS1WAY: 1 in- and 1 outgoing link

@@ -21,15 +21,23 @@ package org.matsim.dgretherCopies;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.log4j.Logger;
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.contrib.signals.data.SignalsData;
+import org.matsim.contrib.signals.data.signalgroups.v20.SignalControlData;
 import org.matsim.contrib.signals.data.signalgroups.v20.SignalData;
+import org.matsim.contrib.signals.data.signalgroups.v20.SignalGroupData;
+import org.matsim.contrib.signals.data.signalgroups.v20.SignalGroupSettingsData;
+import org.matsim.contrib.signals.data.signalgroups.v20.SignalGroupsData;
+import org.matsim.contrib.signals.data.signalgroups.v20.SignalPlanData;
+import org.matsim.contrib.signals.data.signalgroups.v20.SignalSystemControllerData;
 import org.matsim.contrib.signals.data.signalsystems.v20.SignalSystemData;
 import org.matsim.contrib.signals.data.signalsystems.v20.SignalSystemsData;
 import org.matsim.contrib.signals.model.Signal;
+import org.matsim.contrib.signals.model.SignalGroup;
 import org.matsim.contrib.signals.model.SignalSystem;
 import org.matsim.core.utils.collections.Tuple;
 import org.matsim.lanes.data.Lane;
@@ -53,6 +61,10 @@ public class SignalSystemsDataConsistencyChecker {
 	private Network network;
 	
 	private List<Tuple<Id<Signal>, Id<SignalSystem>>> malformedSignals = new LinkedList<>();
+	
+	private List<Tuple<Id<SignalGroup>, Id<SignalSystem>>> emptyGroups = new LinkedList<>();
+	
+	private List<Id<SignalSystem>> emptySystems = new LinkedList<>();
 
 	public SignalSystemsDataConsistencyChecker(Network network, Lanes lanes, SignalsData signalsData) {
 		this.network = network;
@@ -72,11 +84,56 @@ public class SignalSystemsDataConsistencyChecker {
 	}
 
 	private void removeMalformedSignalSystems() {
+		
 		for (Tuple<Id<Signal>, Id<SignalSystem>> tuple : malformedSignals){
 			signalsData.getSignalSystemsData().getSignalSystemData().get(tuple.getSecond()).getSignalData().remove(tuple.getFirst());
-			// TODO remove control of this signal and delete it from its group
+			// TODO remove control (TODO) of this signal and delete it from its group (check)			
+			for(SignalGroupData sigGroup : this.signalsData.getSignalGroupsData().getSignalGroupDataBySignalSystemId().get(tuple.getSecond()).values()){
+				if(sigGroup.getSignalIds().contains(tuple.getFirst())){
+					sigGroup.getSignalIds().remove(tuple.getFirst());					
+				}				
+			}
 		}
-		// TOOD remove empty groups
+		
+		SignalControlData control = this.signalsData.getSignalControlData();
+		for (SignalSystemControllerData  controller : control.getSignalSystemControllerDataBySystemId().values()) {
+			Map<Id<SignalGroup>, SignalGroupData> signalGroups = this.signalsData.getSignalGroupsData().getSignalGroupDataBySystemId(controller.getSignalSystemId());
+			for (SignalPlanData plan : controller.getSignalPlanData().values()) {
+				for (SignalGroupSettingsData settings : plan.getSignalGroupSettingsDataByGroupId().values()) {
+					if (! signalGroups.containsKey(settings.getSignalGroupId())){
+						
+					}
+				}
+			}
+		}
+		
+		
+		for (Map<Id<SignalGroup>, SignalGroupData> sigGroups : this.signalsData.getSignalGroupsData().getSignalGroupDataBySignalSystemId().values()) {
+			for(SignalGroupData sigGroup : sigGroups.values()){
+				if(sigGroup.getSignalIds().isEmpty()){
+					emptyGroups.add(new Tuple<> (sigGroup.getId(), sigGroup.getSignalSystemId()));
+				}
+			}
+		}
+		
+		for (Tuple<Id<SignalGroup>, Id<SignalSystem>> tuple : emptyGroups){
+			signalsData.getSignalGroupsData().getSignalGroupDataBySignalSystemId().get(tuple.getSecond()).remove(tuple.getFirst());
+			for(SignalPlanData sigPlanData : signalsData.getSignalControlData().getSignalSystemControllerDataBySystemId().get(tuple.getSecond()).getSignalPlanData().values()){
+				sigPlanData.getSignalGroupSettingsDataByGroupId().remove(tuple.getFirst());
+			}
+		}
+		
+		for(SignalSystemData system : signalsData.getSignalSystemsData().getSignalSystemData().values()){
+			if(system.getSignalData().isEmpty())
+				emptySystems.add(system.getId());
+		}
+		
+		for(Id<SignalSystem> systemId : emptySystems){
+			signalsData.getSignalSystemsData().getSignalSystemData().remove(systemId);
+			signalsData.getSignalControlData().getSignalSystemControllerDataBySystemId().remove(systemId);
+		}
+				
+		// TODO remove empty groups
 		// TODO remove empty systems and their control
 	}
 
