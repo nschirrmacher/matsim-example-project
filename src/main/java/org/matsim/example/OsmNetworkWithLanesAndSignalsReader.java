@@ -35,7 +35,6 @@ import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.log4j.Logger;
-import org.jfree.util.Log;
 import org.matsim.api.core.v01.Coord;
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.network.Link;
@@ -56,7 +55,6 @@ import org.matsim.contrib.signals.model.Signal;
 import org.matsim.contrib.signals.model.SignalGroup;
 import org.matsim.contrib.signals.model.SignalPlan;
 import org.matsim.contrib.signals.model.SignalSystem;
-import org.matsim.contrib.signals.utils.SignalUtils;
 import org.matsim.core.api.internal.MatsimSomeReader;
 import org.matsim.core.utils.collections.Tuple;
 import org.matsim.core.utils.geometry.CoordUtils;
@@ -146,8 +144,16 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	private final static String TO_LINKS_ANGLES = "toLinksAngles";
 	private final static String IS_ORIG_LANE = "isOrigLane";
 	private final static String TO_LINK_REFERENCE = "toLinkReference";
+	private final static String NON_CRIT_LANES = "non_critical_lane";
+	private final static String CRIT_LANES = "critical_lane";
 	
-		
+	private final static String LANES_ESTIMATION = "StVO_free";
+//	private final static String LANES_ESTIMATION = "StVO_restricted";
+//	private final static String LANES_ESTIMATION = "StVO_very_restricted";
+//	private final static String LANES_ESTIMATION = "realistic_free";
+//	private final static String LANES_ESTIMATION = "realistic_restricted";
+//	private final static String LANES_ESTIMATION = "realistic_very_restricted";
+			
 	private final Map<Long, OsmNode> nodes = new HashMap<Long, OsmNode>();
 	private final Map<Long, OsmWay> ways = new HashMap<Long, OsmWay>();
 	private final Map<Id<Link>, LaneStack> laneStacks = new HashMap<Id<Link>, LaneStack>();
@@ -216,7 +222,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		this.groups = signalsData.getSignalGroupsData();
 		this.control = signalsData.getSignalControlData();
 		this.lanes = lanes;
-		this.setModesForDefaultLanes(2, 2);
+		this.setModesForDefaultLanes(LANES_ESTIMATION);
 
 		if (useHighwayDefaults) {
 			log.info("Falling back to default values.");
@@ -441,6 +447,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	 * 			lane directions on the "Out"-lanes (farthest left and right lane).
 	 * 			1 : only right/left-turn (and reverse on left lane)
 	 * 			2 : right/left-turn and straight (and reverse on left lane)
+	 * 			3 : only left-turn on left lane; right-turn and straight on right lane
 	 *  @param modeMidLanes
 	 *  		The mode in which ToLinks are determined in case of missing 
 	 * 			lane directions on the "Mid"-lanes (all lanes except the farthest 
@@ -451,6 +458,26 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	public void setModesForDefaultLanes(int modeOutLanes, int modeMidLanes){
 		this.modeOutLanes = modeOutLanes;
 		this.modeMidLanes = modeMidLanes;
+	}
+	
+	public void setModesForDefaultLanes(String lanesEstimation){
+		if(lanesEstimation.equals("StVO_free")) {
+			setModesForDefaultLanes(2,2);
+		}else if(lanesEstimation.equals("StVO_restricted")) {
+			setModesForDefaultLanes(3,2);
+		}else if(lanesEstimation.equals("StVO_very_restricted")) {
+			setModesForDefaultLanes(1,2);
+		}else if(lanesEstimation.equals("realistic_free")) {
+			setModesForDefaultLanes(2,1);
+		}else if(lanesEstimation.equals("realistic_restricted")) {
+			setModesForDefaultLanes(3,1);
+		}else if(lanesEstimation.equals("realistic_very_restricted")) {
+			setModesForDefaultLanes(1,1);
+		}else {
+			setModesForDefaultLanes(2,1);
+			log.warn("String LANES_ESTIMATION : '" + LANES_ESTIMATION + 
+					"' could not be read. Mode 'realistic_free' has been set by default!!!");
+		}
 	}
 
 	private void convert() {
@@ -1325,8 +1352,19 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						}						
 					}
 					this.nonCritLanes.put(lane.getId(), nonCritLanes);
-					if(!critLanes.isEmpty())
+					int i = 1;
+					for(Id<Lane> laneId : nonCritLanes) {
+						lane.getAttributes().putAttribute(NON_CRIT_LANES + "_" + i, laneId);
+						i++;
+					}	
+					if(!critLanes.isEmpty()) {
+						i = 1;
 						this.critLanes.put(lane.getId(), critLanes);
+						for(Id<Lane> laneId : critLanes) {
+							lane.getAttributes().putAttribute(CRIT_LANES + "_" + i, laneId);
+							i++;
+						}	
+					}	
 				}
 			}	
 		}
@@ -1934,7 +1972,6 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				if(laneStack.size() == 1)
 					leftLane = true;
 				setToLinksForLaneWithTurnLanes(lane, laneStack.pop(), linkVectors, leftLane);
-				link.getAttributes().putAttribute(TO_LINK_REFERENCE, "OSM-Information");
 				Long key = Long.valueOf(link.getToNode().getId().toString());
 				if(lane.getAlignment() == 2 && this.turnRadii.containsKey(key) && this.useRadiusReduction){
 					double radius = this.turnRadii.get(key);
@@ -1958,8 +1995,6 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	}
 
 	private void setToLinksForLanesDefault(Link link, List<LinkVector> toLinks) {
-		link.getAttributes().putAttribute(TO_LINK_REFERENCE, "Estimation");
-		// TODO bitte in den lanes abspeichern
 		int straightLink = 0;
 		int reverseLink = 0;
 		int straightestLink = 0;
@@ -1993,7 +2028,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				else
 					lane.addToLinkId(toLinks.get(1).getLink().getId());
 				lane.setAlignment(-2);
-				lane.getAttributes().putAttribute(TO_LINK_REFERENCE, "Estimation");
+				lane.getAttributes().putAttribute(TO_LINK_REFERENCE, "Estimation_based_on_" + LANES_ESTIMATION);
 				lane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
 						.get(Id.create("Lane" + link.getId() + "." + "1", Lane.class));				
 				if(reverseLink != -1)
@@ -2002,7 +2037,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					lane.addToLinkId(toLinks.get(toLinks.size()-2).getLink().getId());
 				lane.addToLinkId(toLinks.get(toLinks.size()-1).getLink().getId());
 				lane.setAlignment(2);
-				lane.getAttributes().putAttribute(TO_LINK_REFERENCE, "Estimation");
+				lane.getAttributes().putAttribute(TO_LINK_REFERENCE, "Estimation_based_on_" + LANES_ESTIMATION);
 			}
 			
 			if(modeOutLanes == 2 || modeOutLanes == 3){
@@ -2036,7 +2071,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						lane.addToLinkId(toLinks.get(straightestLink).getLink().getId());
 						midLink = straightestLink;
 					}
-					lane.getAttributes().putAttribute(TO_LINK_REFERENCE, "Estimation");
+					lane.getAttributes().putAttribute(TO_LINK_REFERENCE, "Estimation_based_on_" + LANES_ESTIMATION);
 				}
 			}
 			
@@ -2102,6 +2137,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					}
 				}
 				lane.setAlignment(0);
+				lane.getAttributes().putAttribute(TO_LINK_REFERENCE, "Estimation_based_on_" + LANES_ESTIMATION);
 				break;
 			}
 			if (tempDir < 0 && tempDir > -5) { // all right directions (right,
