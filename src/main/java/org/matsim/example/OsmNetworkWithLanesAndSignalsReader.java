@@ -2133,8 +2133,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					for (LinkVector lvec : toLinks) {
 						if(!lvec.equals(reverseLink) || !this.allowUTurnAtLeftLaneOnly)
 							lane.addToLinkId(lvec.getLink().getId());
-						lane.addToLinkId(throughLink.getLink().getId());
 					}
+					if(lane.getToLinkIds().isEmpty())
+						lane.addToLinkId(throughLink.getLink().getId());
 				}
 				lane.setAlignment(0);
 				lane.getAttributes().putAttribute(TO_LINK_REFERENCE, "Estimation_based_on_" + LANES_ESTIMATION);

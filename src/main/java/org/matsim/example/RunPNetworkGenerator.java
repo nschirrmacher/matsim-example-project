@@ -91,6 +91,7 @@ public class RunPNetworkGenerator {
 		new NetworkCleaner().run(network);
 		
 		LanesConsistencyChecker lanesConsistency = new LanesConsistencyChecker(network, lanes);
+		lanesConsistency.setRemoveMalformed(true);
 		lanesConsistency.checkConsistency();
 		SignalSystemsDataConsistencyChecker signalsConsistency = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
 		signalsConsistency.checkConsistency();
