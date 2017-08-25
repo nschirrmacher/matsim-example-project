@@ -1,36 +1,26 @@
 package org.matsim.example;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
-
-import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.contrib.signals.SignalSystemsConfigGroup;
 import org.matsim.contrib.signals.data.SignalsData;
 import org.matsim.contrib.signals.data.SignalsDataLoader;
 import org.matsim.contrib.signals.data.SignalsScenarioWriter;
-import org.matsim.contrib.signals.data.signalgroups.v20.SignalData;
-import org.matsim.contrib.signals.data.signalsystems.v20.SignalSystemData;
-import org.matsim.contrib.signals.model.Signal;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.config.ConfigWriter;
-import org.matsim.core.network.algorithms.NetworkCalcTopoType;
 import org.matsim.core.network.algorithms.NetworkCleaner;
 import org.matsim.core.network.io.NetworkWriter;
 import org.matsim.core.scenario.ScenarioUtils;
 import org.matsim.core.utils.geometry.CoordinateTransformation;
 import org.matsim.core.utils.geometry.transformations.TransformationFactory;
-import org.matsim.dgretherCopies.LanesConsistencyChecker;
-import org.matsim.dgretherCopies.NetworkLanesSignalsSimplifier;
-import org.matsim.dgretherCopies.SignalControlDataConsistencyChecker;
-import org.matsim.dgretherCopies.SignalGroupsDataConsistencyChecker;
 import org.matsim.dgretherCopies.SignalSystemsDataConsistencyChecker;
 import org.matsim.lanes.data.Lanes;
 import org.matsim.lanes.data.LanesWriter;
+
+import playground.dgrether.lanes.LanesConsistencyChecker;
+import playground.dgrether.signalsystems.data.consistency.SignalControlDataConsistencyChecker;
+import playground.dgrether.signalsystems.data.consistency.SignalGroupsDataConsistencyChecker;
 
 
 /**
