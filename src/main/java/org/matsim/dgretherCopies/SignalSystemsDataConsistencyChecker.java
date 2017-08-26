@@ -163,6 +163,7 @@ public class SignalSystemsDataConsistencyChecker {
 						log.error("Error: No LanesToLinkAssignment for Signals:");
 						log.error("\t\tSignalData Id: "  + signal.getId() + " of SignalSystemData Id: " + system.getId() 
 							+ " is located at some lanes of Link Id: " + signal.getLinkId() + " but there is no LanesToLinkAssignemt existing in the LaneDefinitions.");
+						malformedSignals.add(new Tuple<>(signal.getId(), system.getId()));
 					}
 					else {
 						List<Id<Lane>> lanesToRemove = new LinkedList<>();
