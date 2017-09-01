@@ -28,67 +28,54 @@ import playground.dgrether.signalsystems.data.consistency.SignalGroupsDataConsis
  */
 public class RunPNetworkGenerator {
 	
+	/* The input file name. */
+	private static final String OSM = "./input/map_170523.osm";
+	/*
+	 * The coordinate system to use. OpenStreetMap uses WGS84, but for MATSim, we need a projection where distances
+	 * are (roughly) euclidean distances in meters.
+	 * 
+	 * UTM 33N is one such possibility (for parts of Europe, at least).
+	 */
+	private static final CoordinateTransformation CT = 
+		 TransformationFactory.getCoordinateTransformation(TransformationFactory.WGS84, TransformationFactory.WGS84_UTM33N);
+	
+	private static final String OUTPUT_DIR = "./output/";
+	
+	// use false, if input data already exists and should only be cleaned
+	private static boolean parseOSM = true;
+	
+	
 	public static void main(String[] args) {
 		
-		/*
-		 * The input file name.
-		 */
-		String osm = "./input/map_170523.osm";
-		
-		/*
-		 * The coordinate system to use. OpenStreetMap uses WGS84, but for MATSim, we need a projection where distances
-		 * are (roughly) euclidean distances in meters.
-		 * 
-		 * UTM 33N is one such possibility (for parts of Europe, at least).
-		 * 
-		 */
-		CoordinateTransformation ct = 
-			 TransformationFactory.getCoordinateTransformation(TransformationFactory.WGS84, TransformationFactory.WGS84_UTM33N);
-		
-		/*
-		 * First, create a new Config and a new Scenario. One always has to do this when working with the MATSim 
-		 * data containers.
-		 * 
-		 */
+		// create a config
 		Config config = ConfigUtils.createConfig();
 		SignalSystemsConfigGroup signalSystemsConfigGroup = 
 				ConfigUtils.addOrGetModule(config, SignalSystemsConfigGroup.GROUPNAME, SignalSystemsConfigGroup.class);
 		signalSystemsConfigGroup.setUseSignalSystems(true);
-		config.qsim().setUseLanes(true); //nicht sicher, ob wir das hier (fuer xvis) brauchen. schadet aber nicht. theresa,may'17
+		config.qsim().setUseLanes(true);
 		
+		if (!parseOSM){ 
+			setInputData(config);
+		}
+		
+		// create a scenario
 		Scenario scenario = ScenarioUtils.createScenario(config);
 		scenario.addScenarioElement(SignalsData.ELEMENT_NAME, new SignalsDataLoader(config).loadSignalsData());
-		
-		
+		// pick network, lanes and signals data from the scenario
 		SignalsData signalsData = (SignalsData) scenario.getScenarioElement(SignalsData.ELEMENT_NAME);
-				
-		//added Lanes
 		Lanes lanes = scenario.getLanes();
-		
-		/*
-		 * Pick the Network from the Scenario for convenience.
-		 */
 		Network network = scenario.getNetwork();
 				
-		OsmNetworkWithLanesAndSignalsReader reader = new OsmNetworkWithLanesAndSignalsReader(network,ct,signalsData,lanes);
-		reader.parse(osm);
+		if (parseOSM) {
+			OsmNetworkWithLanesAndSignalsReader reader = new OsmNetworkWithLanesAndSignalsReader(network, CT, signalsData, lanes);
+			reader.parse(OSM);
+		}
 		
 		/*
 		 * Clean the Network. Cleaning means removing disconnected components, so that afterwards there is a route from every link
 		 * to every other link. This may not be the case in the initial network converted from OpenStreetMap.
-		 */
-		
-		new NetworkCleaner().run(network);
-		
-		LanesConsistencyChecker lanesConsistency = new LanesConsistencyChecker(network, lanes);
-		lanesConsistency.setRemoveMalformed(true);
-		lanesConsistency.checkConsistency();
-		SignalSystemsDataConsistencyChecker signalsConsistency = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
-		signalsConsistency.checkConsistency();
-		SignalGroupsDataConsistencyChecker signalGroupsConsistency = new SignalGroupsDataConsistencyChecker(scenario);
-		signalGroupsConsistency.checkConsistency();
-		SignalControlDataConsistencyChecker signalControlConsistency = new SignalControlDataConsistencyChecker(scenario);
-		signalControlConsistency.checkConsistency();
+		 */		
+		cleanNetworkLanesAndSignals(scenario);
 				
 						
 		// TODO check if that works - does not work because of missing Links that are assigned to Signals
@@ -102,21 +89,43 @@ public class RunPNetworkGenerator {
 //		nsimply.setMaximalLinkLength(Double.MAX_VALUE);
 //		nsimply.simplifyNetworkLanesAndSignals(network, lanes, signalsData);
 
-		/*
-		 * Write the Network to a MATSim network file.
-		 */
-		String outputDir = "./output/";
+		writeOutput(scenario);
+	}
 
-		config.network().setInputFile(outputDir + "network.xml");
-		new NetworkWriter(network).write(config.network().getInputFile());
+
+	private static void cleanNetworkLanesAndSignals(Scenario scenario) {
+		Network network = scenario.getNetwork();
+		new NetworkCleaner().run(network);
 		
-		config.network().setLaneDefinitionsFile(outputDir + "lane_definitions_v2.0.xml");
+		Lanes lanes = scenario.getLanes();
+		LanesConsistencyChecker lanesConsistency = new LanesConsistencyChecker(network, lanes);
+		lanesConsistency.setRemoveMalformed(true);
+		lanesConsistency.checkConsistency();
 		
-		signalSystemsConfigGroup.setSignalSystemFile(outputDir + "signal_systems.xml");
-		signalSystemsConfigGroup.setSignalGroupsFile(outputDir + "signal_groups.xml");
-		signalSystemsConfigGroup.setSignalControlFile(outputDir + "signal_control.xml");
+		SignalsData signalsData = (SignalsData) scenario.getScenarioElement(SignalsData.ELEMENT_NAME);
+		SignalSystemsDataConsistencyChecker signalsConsistency = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
+		signalsConsistency.checkConsistency();
+		SignalGroupsDataConsistencyChecker signalGroupsConsistency = new SignalGroupsDataConsistencyChecker(scenario);
+		signalGroupsConsistency.checkConsistency();
+		SignalControlDataConsistencyChecker signalControlConsistency = new SignalControlDataConsistencyChecker(scenario);
+		signalControlConsistency.checkConsistency();
+	}
+
+
+	private static void writeOutput(Scenario scenario) {
+		Config config = scenario.getConfig();
+		config.network().setInputFile(OUTPUT_DIR + "network.xml");
+		new NetworkWriter(scenario.getNetwork()).write(config.network().getInputFile());
 		
-		String configFile = outputDir  + "config.xml";
+		config.network().setLaneDefinitionsFile(OUTPUT_DIR + "lane_definitions_v2.0.xml");
+		
+		SignalSystemsConfigGroup signalSystemsConfigGroup = 
+				ConfigUtils.addOrGetModule(config, SignalSystemsConfigGroup.GROUPNAME, SignalSystemsConfigGroup.class);
+		signalSystemsConfigGroup.setSignalSystemFile(OUTPUT_DIR + "signal_systems.xml");
+		signalSystemsConfigGroup.setSignalGroupsFile(OUTPUT_DIR + "signal_groups.xml");
+		signalSystemsConfigGroup.setSignalControlFile(OUTPUT_DIR + "signal_control.xml");
+		
+		String configFile = OUTPUT_DIR  + "config.xml";
 		ConfigWriter configWriter = new ConfigWriter(config);
 		configWriter.write(configFile);
 		
@@ -129,6 +138,17 @@ public class RunPNetworkGenerator {
 		LanesWriter writerDelegate = new LanesWriter(scenario.getLanes());
 		writerDelegate.write(config.network().getLaneDefinitionsFile());
 		System.out.println("**************** Network-Reading completed -  with Lanes and Signals ****************");
+	}
+
+
+	private static void setInputData(Config config) {
+		config.network().setInputFile(OUTPUT_DIR + "network.xml");
+		config.network().setLaneDefinitionsFile(OUTPUT_DIR + "lane_definitions_v2.0.xml");
+		SignalSystemsConfigGroup signalSystemsConfigGroup = 
+				ConfigUtils.addOrGetModule(config, SignalSystemsConfigGroup.GROUPNAME, SignalSystemsConfigGroup.class);
+		signalSystemsConfigGroup.setSignalControlFile(OUTPUT_DIR + "signal_control.xml");
+		signalSystemsConfigGroup.setSignalGroupsFile(OUTPUT_DIR + "signal_groups.xml");
+		signalSystemsConfigGroup.setSignalSystemFile(OUTPUT_DIR + "signal_systems.xml");
 	}
 
 }
