@@ -36,8 +36,7 @@ import org.matsim.core.scenario.ScenarioUtils;
  *
  */
 public class ControlerToRunSignalsAndLanesFromOSM {
-
-	private final static String configInputFile = "input/runCottbusWithSignalsAndLanes/config.xml";
+	private final static String configInputFile = "./input/runCottbusWithSignalsAndLanes/config.xml";
 	private final static String planInputFile_spreeNeisse = "commuter_population_wgs84_utm33n_car_only_woLinks.xml.gz";
 	private final static String outputDir = "output/runCottbusWithSignalsAndLanes_spreeNeisse/";
 	

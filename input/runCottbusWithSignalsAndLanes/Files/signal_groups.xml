@@ -1,0 +1,708 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<signalGroups xsi:schemaLocation="http://www.matsim.org/files/dtd http://www.matsim.org/files/dtd/signalGroups_v2.0.xsd" xmlns="http://www.matsim.org/files/dtd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <signalSystem refId="System1">
+        <signalGroup id="SignalGroup1.1">
+            <signal refId="Signal1481.2"/>
+            <signal refId="Signal1481.4"/>
+            <signal refId="Signal1485.2"/>
+            <signal refId="Signal1485.4"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1.2">
+            <signal refId="Signal1481.1"/>
+            <signal refId="Signal1485.1"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1.3">
+            <signal refId="Signal1743.2"/>
+            <signal refId="Signal1743.3"/>
+            <signal refId="Signal252.2"/>
+            <signal refId="Signal252.3"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1.4">
+            <signal refId="Signal1743.1"/>
+            <signal refId="Signal252.1"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1313606351">
+        <signalGroup id="SignalGroup1313606351.1">
+            <signal refId="Signal1170.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1313606358">
+        <signalGroup id="SignalGroup1313606358.1">
+            <signal refId="Signal1123.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1313608222">
+        <signalGroup id="PedestrianSignal.1313608222">
+            <signal refId="Signal1397.1"/>
+            <signal refId="Signal1641.1"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1313612561">
+        <signalGroup id="SignalGroup1313612561.1">
+            <signal refId="Signal1373.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1321033350">
+        <signalGroup id="SignalGroup1321033350.1">
+            <signal refId="Signal1086.1"/>
+            <signal refId="Signal1178.1"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1321033350.2">
+            <signal refId="Signal1750.1"/>
+            <signal refId="Signal1750.2"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1321033424">
+        <signalGroup id="SignalGroup1321033424.1">
+            <signal refId="Signal1367.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1321522504">
+        <signalGroup id="PedestrianSignal.1321522504">
+            <signal refId="Signal400.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1321522535">
+        <signalGroup id="SignalGroup1321522535.1">
+            <signal refId="Signal1622.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1321606360">
+        <signalGroup id="PedestrianSignal.1321606360">
+            <signal refId="Signal1568.single"/>
+            <signal refId="Signal29.1"/>
+            <signal refId="Signal29.3"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1325054973">
+        <signalGroup id="SignalGroup1325054973.1">
+            <signal refId="Signal1466.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1325138080">
+        <signalGroup id="SignalGroup1325138080.1">
+            <signal refId="Signal1868.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1325277170">
+        <signalGroup id="SignalGroup1325277170.1">
+            <signal refId="Signal341.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1325416307">
+        <signalGroup id="SignalGroup1325416307.1">
+            <signal refId="Signal315.single"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1325416307.3">
+            <signal refId="Signal1552.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1325533455">
+        <signalGroup id="SignalGroup1325533455.1">
+            <signal refId="Signal1129.single"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1325533455.2">
+            <signal refId="Signal1673.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1325613946">
+        <signalGroup id="PedestrianSignal.1325613946">
+            <signal refId="Signal1152.1"/>
+            <signal refId="Signal1152.2"/>
+            <signal refId="Signal1152.3"/>
+            <signal refId="Signal1159.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1325613981">
+        <signalGroup id="SignalGroup1325613981.1">
+            <signal refId="Signal1679.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1325653681">
+        <signalGroup id="SignalGroup1325653681.1">
+            <signal refId="Signal1684.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1328577302">
+        <signalGroup id="PedestrianSignal.1328577302">
+            <signal refId="Signal1471.1"/>
+            <signal refId="Signal1489.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1329495346">
+        <signalGroup id="SignalGroup1329495346.1">
+            <signal refId="Signal203.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1329495378">
+        <signalGroup id="SignalGroup1329495378.1">
+            <signal refId="Signal201.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1329545115">
+        <signalGroup id="SignalGroup1329545115.1">
+            <signal refId="Signal188.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1329560200">
+        <signalGroup id="SignalGroup1329560200.1">
+            <signal refId="Signal1791.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1329560208">
+        <signalGroup id="SignalGroup1329560208.1">
+            <signal refId="Signal1109.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System14">
+        <signalGroup id="SignalGroup14.1">
+            <signal refId="Signal1870.2"/>
+            <signal refId="Signal1879.1"/>
+            <signal refId="Signal1879.3"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup14.2">
+            <signal refId="Signal1870.1"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup14.3">
+            <signal refId="Signal1602.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1413994107">
+        <signalGroup id="PedestrianSignal.1413994107">
+            <signal refId="Signal115.single"/>
+            <signal refId="Signal118.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1418829785">
+        <signalGroup id="SignalGroup1418829785.1">
+            <signal refId="Signal243.single"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1418829785.3">
+            <signal refId="Signal235.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1419480682">
+        <signalGroup id="SignalGroup1419480682.1">
+            <signal refId="Signal129.single"/>
+            <signal refId="Signal3.single"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1419480682.2">
+            <signal refId="Signal1891.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1420373072">
+        <signalGroup id="SignalGroup1420373072.1">
+            <signal refId="Signal1775.1"/>
+            <signal refId="Signal399.1"/>
+            <signal refId="Signal399.2"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1420373072.2">
+            <signal refId="Signal1773.1"/>
+            <signal refId="Signal1773.2"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1420465766">
+        <signalGroup id="SignalGroup1420465766.1">
+            <signal refId="Signal1162.1"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1420465766.2">
+            <signal refId="Signal614.1"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1420465781">
+        <signalGroup id="SignalGroup1420465781.1">
+            <signal refId="Signal1068.single"/>
+            <signal refId="Signal1765.single"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1420465781.2">
+            <signal refId="Signal1300.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1420523102">
+        <signalGroup id="SignalGroup1420523102.1">
+            <signal refId="Signal840.single"/>
+            <signal refId="Signal843.single"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1420523102.2">
+            <signal refId="Signal912.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1420523165">
+        <signalGroup id="SignalGroup1420523165.1">
+            <signal refId="Signal1074.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1420523201">
+        <signalGroup id="SignalGroup1420523201.1">
+            <signal refId="Signal1343.single"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1420523201.3">
+            <signal refId="Signal64.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1420523226">
+        <signalGroup id="SignalGroup1420523226.1">
+            <signal refId="Signal164.single"/>
+            <signal refId="Signal167.single"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1420523226.2">
+            <signal refId="Signal833.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1420523228">
+        <signalGroup id="SignalGroup1420523228.3">
+            <signal refId="Signal166.single"/>
+            <signal refId="Signal1873.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1420812790">
+        <signalGroup id="SignalGroup1420812790.1">
+            <signal refId="Signal1462.single"/>
+            <signal refId="Signal983.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1424284097">
+        <signalGroup id="SignalGroup1424284097.1">
+            <signal refId="Signal178.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1424284099">
+        <signalGroup id="SignalGroup1424284099.1">
+            <signal refId="Signal208.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1425441016">
+        <signalGroup id="SignalGroup1425441016.3">
+            <signal refId="Signal103.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1425441041">
+        <signalGroup id="SignalGroup1425441041.1">
+            <signal refId="Signal126.single"/>
+            <signal refId="Signal133.2"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1425441041.2">
+            <signal refId="Signal133.1"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1425441041.3">
+            <signal refId="Signal737.2"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1425441041.4">
+            <signal refId="Signal737.1"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1426495901">
+        <signalGroup id="SignalGroup1426495901.1">
+            <signal refId="Signal1080.single"/>
+            <signal refId="Signal1316.single"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1426495901.2">
+            <signal refId="Signal1308.single"/>
+            <signal refId="Signal1383.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1426496172">
+        <signalGroup id="PedestrianSignal.1426496172">
+            <signal refId="Signal1321.single"/>
+            <signal refId="Signal1371.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1432306168">
+        <signalGroup id="PedestrianSignal.1432306168">
+            <signal refId="Signal330.single"/>
+            <signal refId="Signal333.1"/>
+            <signal refId="Signal333.2"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1432306329">
+        <signalGroup id="SignalGroup1432306329.1">
+            <signal refId="Signal331.single"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1432306329.2">
+            <signal refId="Signal1711.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1432307305">
+        <signalGroup id="SignalGroup1432307305.1">
+            <signal refId="Signal1496.1"/>
+            <signal refId="Signal1496.2"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1432307310">
+        <signalGroup id="SignalGroup1432307310.1">
+            <signal refId="Signal92.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1435287924">
+        <signalGroup id="SignalGroup1435287924.1">
+            <signal refId="Signal676.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1435287930">
+        <signalGroup id="SignalGroup1435287930.1">
+            <signal refId="Signal438.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1439122660">
+        <signalGroup id="SignalGroup1439122660.3">
+            <signal refId="Signal1035.single"/>
+            <signal refId="Signal1532.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1439122706">
+        <signalGroup id="SignalGroup1439122706.1">
+            <signal refId="Signal1652.1"/>
+            <signal refId="Signal1652.2"/>
+            <signal refId="Signal1659.1"/>
+            <signal refId="Signal1659.2"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1439122706.2">
+            <signal refId="Signal1527.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1439122742">
+        <signalGroup id="SignalGroup1439122742.1">
+            <signal refId="Signal1858.1"/>
+            <signal refId="Signal1858.2"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1439122742.3">
+            <signal refId="Signal1531.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1439122743">
+        <signalGroup id="SignalGroup1439122743.1">
+            <signal refId="Signal1857.2"/>
+            <signal refId="Signal1857.3"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1439122743.2">
+            <signal refId="Signal1857.1"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1439173002">
+        <signalGroup id="SignalGroup1439173002.1">
+            <signal refId="Signal1044.single"/>
+            <signal refId="Signal1047.single"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1439173002.2">
+            <signal refId="Signal732.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1444899521">
+        <signalGroup id="SignalGroup1444899521.1">
+            <signal refId="Signal818.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1444899538">
+        <signalGroup id="SignalGroup1444899538.1">
+            <signal refId="Signal1979.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1444940825">
+        <signalGroup id="SignalGroup1444940825.1">
+            <signal refId="Signal1603.single"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1444940825.2">
+            <signal refId="Signal1632.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System15">
+        <signalGroup id="SignalGroup15.1">
+            <signal refId="Signal1139.2"/>
+            <signal refId="Signal1139.3"/>
+            <signal refId="Signal1569.2"/>
+            <signal refId="Signal1569.3"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup15.2">
+            <signal refId="Signal1139.1"/>
+            <signal refId="Signal1569.1"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup15.3">
+            <signal refId="Signal1618.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System16">
+        <signalGroup id="SignalGroup16.1">
+            <signal refId="Signal1130.1"/>
+            <signal refId="Signal1158.1"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup16.2">
+            <signal refId="Signal1680.2"/>
+            <signal refId="Signal1680.4"/>
+            <signal refId="Signal1733.2"/>
+            <signal refId="Signal1733.3"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup16.3">
+            <signal refId="Signal1680.1"/>
+            <signal refId="Signal1733.1"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System18">
+        <signalGroup id="SignalGroup18.1">
+            <signal refId="Signal1727.2"/>
+            <signal refId="Signal1751.1"/>
+            <signal refId="Signal1751.2"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup18.2">
+            <signal refId="Signal1727.1"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup18.3">
+            <signal refId="Signal1915.1"/>
+            <signal refId="Signal1915.2"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System1892574673">
+        <signalGroup id="SignalGroup1892574673.1">
+            <signal refId="Signal1282.single"/>
+            <signal refId="Signal1285.single"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup1892574673.2">
+            <signal refId="Signal1136.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System19">
+        <signalGroup id="SignalGroup19.1">
+            <signal refId="Signal190.1"/>
+            <signal refId="Signal190.2"/>
+            <signal refId="Signal207.2"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup19.2">
+            <signal refId="Signal207.1"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup19.3">
+            <signal refId="Signal1848.1"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System20">
+        <signalGroup id="SignalGroup20.1">
+            <signal refId="Signal1334.1"/>
+            <signal refId="Signal650.1"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup20.2">
+            <signal refId="Signal1331.2"/>
+            <signal refId="Signal1331.3"/>
+            <signal refId="Signal342.1"/>
+            <signal refId="Signal342.2"/>
+            <signal refId="Signal342.3"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup20.3">
+            <signal refId="Signal1331.1"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System2192852186">
+        <signalGroup id="SignalGroup2192852186.2">
+            <signal refId="Signal1970.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System24">
+        <signalGroup id="SignalGroup24.1">
+            <signal refId="Signal1319.1"/>
+            <signal refId="Signal1319.2"/>
+            <signal refId="Signal1494.2"/>
+            <signal refId="Signal1494.3"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup24.2">
+            <signal refId="Signal1494.1"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup24.3">
+            <signal refId="Signal1320.2"/>
+            <signal refId="Signal857.single"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup24.4">
+            <signal refId="Signal1320.1"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System28">
+        <signalGroup id="SignalGroup28.1">
+            <signal refId="Signal1524.single"/>
+            <signal refId="Signal1530.single"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup28.2">
+            <signal refId="Signal1533.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System2806186703">
+        <signalGroup id="SignalGroup2806186703.1">
+            <signal refId="Signal1604.single"/>
+            <signal refId="Signal451.2"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup2806186703.2">
+            <signal refId="Signal451.1"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup2806186703.3">
+            <signal refId="Signal1782.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System29">
+        <signalGroup id="SignalGroup29.1">
+            <signal refId="Signal329.1"/>
+            <signal refId="Signal329.2"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup29.2">
+            <signal refId="Signal1257.1"/>
+            <signal refId="Signal47.1"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System30">
+        <signalGroup id="SignalGroup30.1">
+            <signal refId="Signal1046.1"/>
+            <signal refId="Signal1400.1"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup30.2">
+            <signal refId="Signal1305.1"/>
+            <signal refId="Signal1305.3"/>
+            <signal refId="Signal233.2"/>
+            <signal refId="Signal233.3"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup30.3">
+            <signal refId="Signal233.1"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System31">
+        <signalGroup id="SignalGroup31.1">
+            <signal refId="Signal189.1"/>
+            <signal refId="Signal189.2"/>
+            <signal refId="Signal211.2"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup31.2">
+            <signal refId="Signal211.1"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup31.3">
+            <signal refId="Signal1284.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System3202368161">
+        <signalGroup id="SignalGroup3202368161.1">
+            <signal refId="Signal549.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System3213270839">
+        <signalGroup id="PedestrianSignal.3213270839">
+            <signal refId="Signal105.single"/>
+            <signal refId="Signal108.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System3213272187">
+        <signalGroup id="SignalGroup3213272187.1">
+            <signal refId="Signal443.1"/>
+            <signal refId="Signal443.2"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup3213272187.2">
+            <signal refId="Signal1495.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System33">
+        <signalGroup id="SignalGroup33.1">
+            <signal refId="Signal1585.single"/>
+            <signal refId="Signal457.single"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup33.2">
+            <signal refId="Signal177.2"/>
+            <signal refId="Signal177.3"/>
+            <signal refId="Signal209.2"/>
+            <signal refId="Signal209.3"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup33.3">
+            <signal refId="Signal177.1"/>
+            <signal refId="Signal209.1"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System3327605476">
+        <signalGroup id="PedestrianSignal.3327605476">
+            <signal refId="Signal1756.single"/>
+            <signal refId="Signal244.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System34">
+        <signalGroup id="SignalGroup34.1">
+            <signal refId="Signal1685.2"/>
+            <signal refId="Signal1886.1"/>
+            <signal refId="Signal1886.2"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup34.2">
+            <signal refId="Signal1685.1"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System36">
+        <signalGroup id="SignalGroup36.1">
+            <signal refId="Signal168.single"/>
+            <signal refId="Signal197.2"/>
+            <signal refId="Signal197.3"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup36.2">
+            <signal refId="Signal197.1"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup36.3">
+            <signal refId="Signal1488.2"/>
+            <signal refId="Signal162.2"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup36.4">
+            <signal refId="Signal1488.1"/>
+            <signal refId="Signal162.1"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System3765220557">
+        <signalGroup id="SignalGroup3765220557.1">
+            <signal refId="Signal558.1"/>
+            <signal refId="Signal558.2"/>
+            <signal refId="Signal558.3"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup3765220557.2">
+            <signal refId="Signal1138.single"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System4">
+        <signalGroup id="SignalGroup4.1">
+            <signal refId="Signal1279.2"/>
+            <signal refId="Signal1279.4"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup4.2">
+            <signal refId="Signal1279.1"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup4.3">
+            <signal refId="Signal1374.3"/>
+            <signal refId="Signal1374.4"/>
+            <signal refId="Signal613.3"/>
+            <signal refId="Signal613.4"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup4.4">
+            <signal refId="Signal1374.1"/>
+            <signal refId="Signal1374.2"/>
+            <signal refId="Signal613.1"/>
+            <signal refId="Signal613.2"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System40">
+        <signalGroup id="SignalGroup40.1">
+            <signal refId="Signal1969.2"/>
+            <signal refId="Signal1969.3"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup40.2">
+            <signal refId="Signal1969.1"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup40.3">
+            <signal refId="Signal169.2"/>
+            <signal refId="Signal169.3"/>
+            <signal refId="Signal199.2"/>
+            <signal refId="Signal199.4"/>
+        </signalGroup>
+        <signalGroup id="SignalGroup40.4">
+            <signal refId="Signal169.1"/>
+            <signal refId="Signal199.1"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System5">
+        <signalGroup id="SignalGroup5.1">
+            <signal refId="Signal1076.1"/>
+            <signal refId="Signal1332.1"/>
+            <signal refId="Signal1337.1"/>
+            <signal refId="Signal1337.2"/>
+        </signalGroup>
+    </signalSystem>
+    <signalSystem refId="System692768139">
+        <signalGroup id="PedestrianSignal.692768139">
+            <signal refId="Signal2015.single"/>
+            <signal refId="Signal2018.single"/>
+        </signalGroup>
+    </signalSystem>
+</signalGroups>

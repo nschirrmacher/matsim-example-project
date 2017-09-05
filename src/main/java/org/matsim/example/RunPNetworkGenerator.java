@@ -1,5 +1,8 @@
 package org.matsim.example;
 
+import java.util.Set;
+import java.util.TreeSet;
+
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.contrib.signals.SignalSystemsConfigGroup;
@@ -9,6 +12,7 @@ import org.matsim.contrib.signals.data.SignalsScenarioWriter;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.config.ConfigWriter;
+import org.matsim.core.network.algorithms.NetworkCalcTopoType;
 import org.matsim.core.network.algorithms.NetworkCleaner;
 import org.matsim.core.network.io.NetworkWriter;
 import org.matsim.core.scenario.ScenarioUtils;
@@ -18,6 +22,7 @@ import org.matsim.dgretherCopies.SignalSystemsDataConsistencyChecker;
 import org.matsim.lanes.data.Lanes;
 import org.matsim.lanes.data.LanesWriter;
 
+import playground.dgrether.koehlerstrehlersignal.network.NetworkLanesSignalsSimplifier;
 import playground.dgrether.lanes.LanesConsistencyChecker;
 import playground.dgrether.signalsystems.data.consistency.SignalControlDataConsistencyChecker;
 import playground.dgrether.signalsystems.data.consistency.SignalGroupsDataConsistencyChecker;
@@ -33,7 +38,7 @@ public class RunPNetworkGenerator {
 		/*
 		 * The input file name.
 		 */
-		String osm = "./input/map_170523.osm";
+		String osm = "./input/map_cottbus.osm";
 		
 		/*
 		 * The coordinate system to use. OpenStreetMap uses WGS84, but for MATSim, we need a projection where distances
@@ -89,18 +94,32 @@ public class RunPNetworkGenerator {
 		signalGroupsConsistency.checkConsistency();
 		SignalControlDataConsistencyChecker signalControlConsistency = new SignalControlDataConsistencyChecker(scenario);
 		signalControlConsistency.checkConsistency();
-				
-						
+		
 		// TODO check if that works - does not work because of missing Links that are assigned to Signals
 		// run a network simplifier to merge links with same attributes
-//		Set<Integer> nodeTypesToMerge = new TreeSet<Integer>();
-//		nodeTypesToMerge.add(NetworkCalcTopoType.PASS1WAY); // PASS1WAY: 1 in- and 1 outgoing link
-//		nodeTypesToMerge.add(NetworkCalcTopoType.PASS2WAY); // PASS2WAY: 2 in- and 2 outgoing links
-//		NetworkLanesSignalsSimplifier nsimply = new NetworkLanesSignalsSimplifier();
-//		nsimply.setNodesToMerge(nodeTypesToMerge);
-//		nsimply.setSimplifySignalizedNodes(false);
-//		nsimply.setMaximalLinkLength(Double.MAX_VALUE);
-//		nsimply.simplifyNetworkLanesAndSignals(network, lanes, signalsData);
+		Set<Integer> nodeTypesToMerge = new TreeSet<Integer>();
+		nodeTypesToMerge.add(NetworkCalcTopoType.PASS1WAY); // PASS1WAY: 1 in- and 1 outgoing link
+		nodeTypesToMerge.add(NetworkCalcTopoType.PASS2WAY); // PASS2WAY: 2 in- and 2 outgoing links
+		NetworkLanesSignalsSimplifier nsimply = new NetworkLanesSignalsSimplifier();
+		nsimply.setNodesToMerge(nodeTypesToMerge);
+		nsimply.setSimplifySignalizedNodes(false);
+		nsimply.setMaximalLinkLength(Double.MAX_VALUE);
+		nsimply.simplifyNetworkLanesAndSignals(network, lanes, signalsData);
+		
+		new NetworkCleaner().run(network);
+		
+		LanesConsistencyChecker lanesConsistency2 = new LanesConsistencyChecker(network, lanes);
+		lanesConsistency2.setRemoveMalformed(true);
+		lanesConsistency2.checkConsistency();
+		SignalSystemsDataConsistencyChecker signalsConsistency2 = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
+		signalsConsistency2.checkConsistency();
+		SignalGroupsDataConsistencyChecker signalGroupsConsistency2 = new SignalGroupsDataConsistencyChecker(scenario);
+		signalGroupsConsistency2.checkConsistency();
+		SignalControlDataConsistencyChecker signalControlConsistency2 = new SignalControlDataConsistencyChecker(scenario);
+		signalControlConsistency2.checkConsistency();
+				
+						
+		
 
 		/*
 		 * Write the Network to a MATSim network file.
@@ -110,7 +129,7 @@ public class RunPNetworkGenerator {
 		config.network().setInputFile(outputDir + "network.xml");
 		new NetworkWriter(network).write(config.network().getInputFile());
 		
-		config.network().setLaneDefinitionsFile(outputDir + "lane_definitions_v2.0.xml");
+		config.network().setLaneDefinitionsFile(outputDir + "lanes.xml");
 		
 		signalSystemsConfigGroup.setSignalSystemFile(outputDir + "signal_systems.xml");
 		signalSystemsConfigGroup.setSignalGroupsFile(outputDir + "signal_groups.xml");
