@@ -34,7 +34,7 @@ import playground.dgrether.signalsystems.data.consistency.SignalGroupsDataConsis
 public class RunPNetworkGenerator {
 	
 	/* The input file name. */
-	private static final String OSM = "./input/map_170523.osm";
+	private static final String OSM = "./input/map_cottbus.osm";
 	/*
 	 * The coordinate system to use. OpenStreetMap uses WGS84, but for MATSim, we need a projection where distances
 	 * are (roughly) euclidean distances in meters.
@@ -52,11 +52,11 @@ public class RunPNetworkGenerator {
 	
 	public static void main(String[] args) {
 		
-<<<<<<< HEAD
+
 		/*
 		 * The input file name.
 		 */
-		String osm = "./input/map_cottbus.osm";
+//		String osm = "./input/map_cottbus.osm";
 		
 		/*
 		 * The coordinate system to use. OpenStreetMap uses WGS84, but for MATSim, we need a projection where distances
@@ -73,9 +73,8 @@ public class RunPNetworkGenerator {
 		 * data containers.
 		 * 
 		 */
-=======
+		
 		// create a config
->>>>>>> refs/remotes/origin/master
 		Config config = ConfigUtils.createConfig();
 		SignalSystemsConfigGroup signalSystemsConfigGroup = 
 				ConfigUtils.addOrGetModule(config, SignalSystemsConfigGroup.GROUPNAME, SignalSystemsConfigGroup.class);
@@ -102,7 +101,6 @@ public class RunPNetworkGenerator {
 		/*
 		 * Clean the Network. Cleaning means removing disconnected components, so that afterwards there is a route from every link
 		 * to every other link. This may not be the case in the initial network converted from OpenStreetMap.
-<<<<<<< HEAD
 		 */
 		
 		new NetworkCleaner().run(network);
@@ -116,13 +114,9 @@ public class RunPNetworkGenerator {
 		signalGroupsConsistency.checkConsistency();
 		SignalControlDataConsistencyChecker signalControlConsistency = new SignalControlDataConsistencyChecker(scenario);
 		signalControlConsistency.checkConsistency();
+			
+//		cleanNetworkLanesAndSignals(scenario);
 		
-=======
-		 */		
-		cleanNetworkLanesAndSignals(scenario);
-				
-						
->>>>>>> refs/remotes/origin/master
 		// TODO check if that works - does not work because of missing Links that are assigned to Signals
 		// run a network simplifier to merge links with same attributes
 		Set<Integer> nodeTypesToMerge = new TreeSet<Integer>();
@@ -146,34 +140,31 @@ public class RunPNetworkGenerator {
 		SignalControlDataConsistencyChecker signalControlConsistency2 = new SignalControlDataConsistencyChecker(scenario);
 		signalControlConsistency2.checkConsistency();
 				
-						
-		
-
 		writeOutput(scenario);
 	}
 
 
-	private static void cleanNetworkLanesAndSignals(Scenario scenario) {
-		Network network = scenario.getNetwork();
-		new NetworkCleaner().run(network);
-		
-<<<<<<< HEAD
-		config.network().setLaneDefinitionsFile(outputDir + "lanes.xml");
-=======
-		Lanes lanes = scenario.getLanes();
-		LanesConsistencyChecker lanesConsistency = new LanesConsistencyChecker(network, lanes);
-		lanesConsistency.setRemoveMalformed(true);
-		lanesConsistency.checkConsistency();
->>>>>>> refs/remotes/origin/master
-		
-		SignalsData signalsData = (SignalsData) scenario.getScenarioElement(SignalsData.ELEMENT_NAME);
-		SignalSystemsDataConsistencyChecker signalsConsistency = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
-		signalsConsistency.checkConsistency();
-		SignalGroupsDataConsistencyChecker signalGroupsConsistency = new SignalGroupsDataConsistencyChecker(scenario);
-		signalGroupsConsistency.checkConsistency();
-		SignalControlDataConsistencyChecker signalControlConsistency = new SignalControlDataConsistencyChecker(scenario);
-		signalControlConsistency.checkConsistency();
-	}
+//	private static void cleanNetworkLanesAndSignals(Scenario scenario) {
+//		Network network = scenario.getNetwork();
+//		new NetworkCleaner().run(network);
+//		
+//
+//		config.network().setLaneDefinitionsFile(outputDir + "lanes.xml");
+//
+//		Lanes lanes = scenario.getLanes();
+//		LanesConsistencyChecker lanesConsistency = new LanesConsistencyChecker(network, lanes);
+//		lanesConsistency.setRemoveMalformed(true);
+//		lanesConsistency.checkConsistency();
+//
+//		
+//		SignalsData signalsData = (SignalsData) scenario.getScenarioElement(SignalsData.ELEMENT_NAME);
+//		SignalSystemsDataConsistencyChecker signalsConsistency = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
+//		signalsConsistency.checkConsistency();
+//		SignalGroupsDataConsistencyChecker signalGroupsConsistency = new SignalGroupsDataConsistencyChecker(scenario);
+//		signalGroupsConsistency.checkConsistency();
+//		SignalControlDataConsistencyChecker signalControlConsistency = new SignalControlDataConsistencyChecker(scenario);
+//		signalControlConsistency.checkConsistency();
+//	}
 
 
 	private static void writeOutput(Scenario scenario) {
