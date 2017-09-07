@@ -103,68 +103,68 @@ public class RunPNetworkGenerator {
 		 * to every other link. This may not be the case in the initial network converted from OpenStreetMap.
 		 */
 		
-		new NetworkCleaner().run(network);
-		
-		LanesConsistencyChecker lanesConsistency = new LanesConsistencyChecker(network, lanes);
-		lanesConsistency.setRemoveMalformed(true);
-		lanesConsistency.checkConsistency();
-		SignalSystemsDataConsistencyChecker signalsConsistency = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
-		signalsConsistency.checkConsistency();
-		SignalGroupsDataConsistencyChecker signalGroupsConsistency = new SignalGroupsDataConsistencyChecker(scenario);
-		signalGroupsConsistency.checkConsistency();
-		SignalControlDataConsistencyChecker signalControlConsistency = new SignalControlDataConsistencyChecker(scenario);
-		signalControlConsistency.checkConsistency();
-			
-//		cleanNetworkLanesAndSignals(scenario);
-		
-		// TODO check if that works - does not work because of missing Links that are assigned to Signals
-		// run a network simplifier to merge links with same attributes
-		Set<Integer> nodeTypesToMerge = new TreeSet<Integer>();
-		nodeTypesToMerge.add(NetworkCalcTopoType.PASS1WAY); // PASS1WAY: 1 in- and 1 outgoing link
-		nodeTypesToMerge.add(NetworkCalcTopoType.PASS2WAY); // PASS2WAY: 2 in- and 2 outgoing links
-		NetworkLanesSignalsSimplifier nsimply = new NetworkLanesSignalsSimplifier();
-		nsimply.setNodesToMerge(nodeTypesToMerge);
-		nsimply.setSimplifySignalizedNodes(false);
-		nsimply.setMaximalLinkLength(Double.MAX_VALUE);
-		nsimply.simplifyNetworkLanesAndSignals(network, lanes, signalsData);
-		
-		new NetworkCleaner().run(network);
-		
-		LanesConsistencyChecker lanesConsistency2 = new LanesConsistencyChecker(network, lanes);
-		lanesConsistency2.setRemoveMalformed(true);
-		lanesConsistency2.checkConsistency();
-		SignalSystemsDataConsistencyChecker signalsConsistency2 = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
-		signalsConsistency2.checkConsistency();
-		SignalGroupsDataConsistencyChecker signalGroupsConsistency2 = new SignalGroupsDataConsistencyChecker(scenario);
-		signalGroupsConsistency2.checkConsistency();
-		SignalControlDataConsistencyChecker signalControlConsistency2 = new SignalControlDataConsistencyChecker(scenario);
-		signalControlConsistency2.checkConsistency();
-				
-		writeOutput(scenario);
-	}
-
-
-//	private static void cleanNetworkLanesAndSignals(Scenario scenario) {
-//		Network network = scenario.getNetwork();
 //		new NetworkCleaner().run(network);
 //		
-//
-//		config.network().setLaneDefinitionsFile(outputDir + "lanes.xml");
-//
-//		Lanes lanes = scenario.getLanes();
 //		LanesConsistencyChecker lanesConsistency = new LanesConsistencyChecker(network, lanes);
 //		lanesConsistency.setRemoveMalformed(true);
 //		lanesConsistency.checkConsistency();
-//
-//		
-//		SignalsData signalsData = (SignalsData) scenario.getScenarioElement(SignalsData.ELEMENT_NAME);
 //		SignalSystemsDataConsistencyChecker signalsConsistency = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
 //		signalsConsistency.checkConsistency();
 //		SignalGroupsDataConsistencyChecker signalGroupsConsistency = new SignalGroupsDataConsistencyChecker(scenario);
 //		signalGroupsConsistency.checkConsistency();
 //		SignalControlDataConsistencyChecker signalControlConsistency = new SignalControlDataConsistencyChecker(scenario);
 //		signalControlConsistency.checkConsistency();
-//	}
+			
+		cleanNetworkLanesAndSignals(scenario, config);
+//		
+//		// TODO check if that works - does not work because of missing Links that are assigned to Signals
+//		// run a network simplifier to merge links with same attributes
+//		Set<Integer> nodeTypesToMerge = new TreeSet<Integer>();
+//		nodeTypesToMerge.add(NetworkCalcTopoType.PASS1WAY); // PASS1WAY: 1 in- and 1 outgoing link
+//		nodeTypesToMerge.add(NetworkCalcTopoType.PASS2WAY); // PASS2WAY: 2 in- and 2 outgoing links
+//		NetworkLanesSignalsSimplifier nsimply = new NetworkLanesSignalsSimplifier();
+//		nsimply.setNodesToMerge(nodeTypesToMerge);
+//		nsimply.setSimplifySignalizedNodes(false);
+//		nsimply.setMaximalLinkLength(Double.MAX_VALUE);
+//		nsimply.simplifyNetworkLanesAndSignals(network, lanes, signalsData);
+//		
+//		new NetworkCleaner().run(network);
+//		
+//		LanesConsistencyChecker lanesConsistency2 = new LanesConsistencyChecker(network, lanes);
+//		lanesConsistency2.setRemoveMalformed(true);
+//		lanesConsistency2.checkConsistency();
+//		SignalSystemsDataConsistencyChecker signalsConsistency2 = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
+//		signalsConsistency2.checkConsistency();
+//		SignalGroupsDataConsistencyChecker signalGroupsConsistency2 = new SignalGroupsDataConsistencyChecker(scenario);
+//		signalGroupsConsistency2.checkConsistency();
+//		SignalControlDataConsistencyChecker signalControlConsistency2 = new SignalControlDataConsistencyChecker(scenario);
+//		signalControlConsistency2.checkConsistency();
+				
+		writeOutput(scenario);
+	}
+
+
+	private static void cleanNetworkLanesAndSignals(Scenario scenario, Config config) {
+		Network network = scenario.getNetwork();
+		new NetworkCleaner().run(network);
+		
+
+		config.network().setLaneDefinitionsFile(OUTPUT_DIR + "lanes.xml");
+
+		Lanes lanes = scenario.getLanes();
+		LanesConsistencyChecker lanesConsistency = new LanesConsistencyChecker(network, lanes);
+		lanesConsistency.setRemoveMalformed(true);
+		lanesConsistency.checkConsistency();
+
+		
+		SignalsData signalsData = (SignalsData) scenario.getScenarioElement(SignalsData.ELEMENT_NAME);
+		SignalSystemsDataConsistencyChecker signalsConsistency = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
+		signalsConsistency.checkConsistency();
+		SignalGroupsDataConsistencyChecker signalGroupsConsistency = new SignalGroupsDataConsistencyChecker(scenario);
+		signalGroupsConsistency.checkConsistency();
+		SignalControlDataConsistencyChecker signalControlConsistency = new SignalControlDataConsistencyChecker(scenario);
+		signalControlConsistency.checkConsistency();
+	}
 
 
 	private static void writeOutput(Scenario scenario) {

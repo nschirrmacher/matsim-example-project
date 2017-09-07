@@ -49,8 +49,8 @@
 		<!-- The Coordinates Reference System in which the coordinates are expressed in the input file. At import, the coordinates will be converted to the coordinate system defined in "global", and willbe converted back at export. If not specified, no conversion happens. -->
 		<param name="inputCRS" value="null" />
 
-		<param name="inputNetworkFile" value="network.xml" />
-		<param name="laneDefinitionsFile" value="lanes.xml" />
+		<param name="inputNetworkFile" value="Files/network.xml" />
+		<param name="laneDefinitionsFile" value="Files/lanes.xml" />
 	</module>
 
 <!-- ====================================================================== -->
@@ -260,9 +260,9 @@
 
 		<param name="ambertimes" value="null" />
 		<param name="intergreentimes" value="null" />
-		<param name="signalcontrol" value="signalControl.xml" />
-		<param name="signalgroups" value="signalGroups.xml" />
-		<param name="signalsystems" value="signalSystems.xml" />
+		<param name="signalcontrol" value="Files/signal_control.xml" />
+		<param name="signalgroups" value="Files/signal_groups.xml" />
+		<param name="signalsystems" value="Files/signal_systems.xml" />
 		<param name="useAmbertimes" value="false" />
 		<param name="useIntergreentimes" value="false" />
 		<param name="useSignalsystems" value="true" />

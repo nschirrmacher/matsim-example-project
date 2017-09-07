@@ -781,7 +781,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				boolean otherSuit = false;
 				for(OsmWay way : node.ways.values()){
 					String oneway = way.tags.get(TAG_ONEWAY);
-					if(oneway != null && oneway != "no"){
+					if(oneway != null && !oneway.equals("no")){
 						suit = true;
 					}
 					for (int i = 0; i < way.nodes.size(); i++) {
@@ -792,7 +792,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 							for(OsmWay otherWay : otherNode.ways.values()){
 								if(!node.ways.containsKey(otherWay.id)){
 									String otherOneway = otherWay.tags.get(TAG_ONEWAY);
-									if(otherOneway != null && oneway != "no"){
+									if(otherOneway != null && !otherOneway.equals("no")){
 										otherSuit = true;
 										break;
 									}	
@@ -1631,18 +1631,33 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		if (turnLanes != null) {
 			allTurnLanes = new Stack<Stack<Integer>>();
 			createLaneStack(turnLanes, allTurnLanes, nofLanesForw);
+			if(nofLanesForw < allTurnLanes.size()){
+				double totalNumberOfLanes = nofLanesForw + nofLanesBack;
+				nofLanesForw = allTurnLanes.size();
+				nofLanesBack = totalNumberOfLanes - nofLanesForw;
+			}	
 		}
 
 		String turnLanesForw = way.tags.get(TAG_TURNLANESFORW);
 		if (turnLanesForw != null) {
 			allTurnLanesForw = new Stack<Stack<Integer>>();
 			createLaneStack(turnLanesForw, allTurnLanesForw, nofLanesForw);
+			if(nofLanesForw < allTurnLanesForw.size()){
+				double totalNumberOfLanes = nofLanesForw + nofLanesBack;
+				nofLanesForw = allTurnLanesForw.size();
+				nofLanesBack = totalNumberOfLanes - nofLanesForw;
+			}			
 		}
 
 		String turnLanesBack = way.tags.get(TAG_TURNLANESBACK);
 		if (turnLanesBack != null) {
 			allTurnLanesBack = new Stack<Stack<Integer>>();
-			createLaneStack(turnLanesBack, allTurnLanesBack, nofLanesForw);
+			createLaneStack(turnLanesBack, allTurnLanesBack, nofLanesBack);
+			if(nofLanesBack < allTurnLanesBack.size()){
+				double totalNumberOfLanes = nofLanesForw + nofLanesBack;
+				nofLanesBack = allTurnLanesBack.size();
+				nofLanesForw = totalNumberOfLanes - nofLanesBack;
+			}
 		}
 
 		// create the link(s)
