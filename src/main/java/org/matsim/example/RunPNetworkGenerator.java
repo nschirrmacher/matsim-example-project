@@ -34,7 +34,7 @@ import playground.dgrether.signalsystems.data.consistency.SignalGroupsDataConsis
 public class RunPNetworkGenerator {
 	
 	/* The input file name. */
-	private static final String OSM = "./input/map_cottbus.osm";
+	private static final String OSM = "./input/interpreter.osm";
 	/*
 	 * The coordinate system to use. OpenStreetMap uses WGS84, but for MATSim, we need a projection where distances
 	 * are (roughly) euclidean distances in meters.
@@ -95,30 +95,19 @@ public class RunPNetworkGenerator {
 				
 		if (parseOSM) {
 			OsmNetworkWithLanesAndSignalsReader reader = new OsmNetworkWithLanesAndSignalsReader(network, CT, signalsData, lanes);
+			reader.setBoundingBox(51.7464, 14.3087, 51.7761, 14.3639);
 			reader.parse(OSM);
 		}
 		
 		/*
 		 * Clean the Network. Cleaning means removing disconnected components, so that afterwards there is a route from every link
 		 * to every other link. This may not be the case in the initial network converted from OpenStreetMap.
-		 */
-		
-//		new NetworkCleaner().run(network);
-//		
-//		LanesConsistencyChecker lanesConsistency = new LanesConsistencyChecker(network, lanes);
-//		lanesConsistency.setRemoveMalformed(true);
-//		lanesConsistency.checkConsistency();
-//		SignalSystemsDataConsistencyChecker signalsConsistency = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
-//		signalsConsistency.checkConsistency();
-//		SignalGroupsDataConsistencyChecker signalGroupsConsistency = new SignalGroupsDataConsistencyChecker(scenario);
-//		signalGroupsConsistency.checkConsistency();
-//		SignalControlDataConsistencyChecker signalControlConsistency = new SignalControlDataConsistencyChecker(scenario);
-//		signalControlConsistency.checkConsistency();
+		 */		
 			
-		cleanNetworkLanesAndSignals(scenario, config);
-//		
-//		// TODO check if that works - does not work because of missing Links that are assigned to Signals
-//		// run a network simplifier to merge links with same attributes
+		cleanNetworkLanesAndSignals(scenario, config);		
+		
+		// TODO check if that works - does not work because of missing Links that are assigned to Signals
+		// run a network simplifier to merge links with same attributes
 //		Set<Integer> nodeTypesToMerge = new TreeSet<Integer>();
 //		nodeTypesToMerge.add(NetworkCalcTopoType.PASS1WAY); // PASS1WAY: 1 in- and 1 outgoing link
 //		nodeTypesToMerge.add(NetworkCalcTopoType.PASS2WAY); // PASS2WAY: 2 in- and 2 outgoing links
@@ -128,17 +117,7 @@ public class RunPNetworkGenerator {
 //		nsimply.setMaximalLinkLength(Double.MAX_VALUE);
 //		nsimply.simplifyNetworkLanesAndSignals(network, lanes, signalsData);
 //		
-//		new NetworkCleaner().run(network);
-//		
-//		LanesConsistencyChecker lanesConsistency2 = new LanesConsistencyChecker(network, lanes);
-//		lanesConsistency2.setRemoveMalformed(true);
-//		lanesConsistency2.checkConsistency();
-//		SignalSystemsDataConsistencyChecker signalsConsistency2 = new SignalSystemsDataConsistencyChecker(network, lanes, signalsData);
-//		signalsConsistency2.checkConsistency();
-//		SignalGroupsDataConsistencyChecker signalGroupsConsistency2 = new SignalGroupsDataConsistencyChecker(scenario);
-//		signalGroupsConsistency2.checkConsistency();
-//		SignalControlDataConsistencyChecker signalControlConsistency2 = new SignalControlDataConsistencyChecker(scenario);
-//		signalControlConsistency2.checkConsistency();
+//		cleanNetworkLanesAndSignals(scenario, config);
 				
 		writeOutput(scenario);
 	}
@@ -172,7 +151,7 @@ public class RunPNetworkGenerator {
 		config.network().setInputFile(OUTPUT_DIR + "network.xml");
 		new NetworkWriter(scenario.getNetwork()).write(config.network().getInputFile());
 		
-		config.network().setLaneDefinitionsFile(OUTPUT_DIR + "lane_definitions_v2.0.xml");
+		config.network().setLaneDefinitionsFile(OUTPUT_DIR + "lanes.xml");
 		
 		SignalSystemsConfigGroup signalSystemsConfigGroup = 
 				ConfigUtils.addOrGetModule(config, SignalSystemsConfigGroup.GROUPNAME, SignalSystemsConfigGroup.class);

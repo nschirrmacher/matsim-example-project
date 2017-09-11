@@ -175,6 +175,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	
 	private boolean useRadiusReduction = true;
 	private boolean allowUTurnAtLeftLaneOnly = true;
+	private boolean makePedestrianSignals = false;
 	
 	private int modeMidLanes = 1;
 	private int modeOutLanes = 1;
@@ -184,6 +185,10 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	private final SignalControlData control;
 
 	private final Lanes lanes;
+	
+	private BoundingBox bbox = null;
+	
+	
 
 	/* package */ final List<OsmFilter> hierarchyLayers = new ArrayList<OsmFilter>();
 
@@ -477,6 +482,16 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					"' could not be read. Mode 'realistic_free' has been set by default!!!");
 		}
 	}
+	
+	public void setBoundingBox(double south, double west, double north, double east){
+		Coord nw = this.transform.transform(new Coord(west, north));
+		Coord se = this.transform.transform(new Coord(east, south));
+//		south = this.transform.transform(new Coord(east -(east-west)/2, south)).getY();
+//		west = this.transform.transform(new Coord(west, north -(north-south)/2)).getX();
+//		north = this.transform.transform(new Coord(east -(east-west)/2, north)).getY();
+//		east = this.transform.transform(new Coord(east, north -(north-south)/2)).getX();
+		this.bbox = new BoundingBox(se.getY(), nw.getX(), nw.getY(), se.getX());
+	}
 
 	private void convert() {
 		if (this.network instanceof Network) {
@@ -663,12 +678,12 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			if(link.getToNode().getOutLinks().size() > 1){
 				if (link.getNumberOfLanes() > 1) {
 					fillLanesAndCheckRestrictions(link);
-				} else { 
-					List<LinkVector> linkVectors = constructOrderedOutLinkVectors(link);
-					if (!nodes.get(Long.valueOf(link.getToNode().getId().toString())).restrictions.isEmpty()) {
+				} else {					
+					if (!nodes.get(Long.valueOf(link.getToNode().getId().toString())).restrictions.isEmpty() && (this.bbox == null || this.bbox.contains(nodes.get(Long.valueOf(link.getToNode().getId().toString())).coord))) {
 					// if there exists an Restriction in the ToNode, we want to
 					// create a Lane to represent the restriction,
 					// as the toLinks cannot be restricted otherwise 
+						List<LinkVector> linkVectors = constructOrderedOutLinkVectors(link);
 						createLanes(link, lanes, 1);						
 						removeRestrictedLinks(link, linkVectors);
 						LanesToLinkAssignment l2l = lanes.getLanesToLinkAssignments().get(link.getId());
@@ -715,13 +730,19 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			Id<SignalSystem> systemId = Id.create("System" + Long.valueOf(node.getId().toString()), SignalSystem.class);
 			if(this.systems.getSignalSystemData().containsKey(systemId)){
 				SignalSystemData signalSystem = this.systems.getSignalSystemData().get(systemId);
-				if(node.getInLinks().size() == 1){					
-					createPlansForOneWayJunction(signalSystem, node);
-					log.info("single signal found @ " + node.getId());
-					badCounter++;
+				if(node.getInLinks().size() == 1){
+					if(this.makePedestrianSignals){
+						createPlansForOneWayJunction(signalSystem, node);
+						log.info("single signal found @ " + node.getId());
+						badCounter++;
+					}else{
+						this.systems.getSignalSystemData().remove(systemId);
+						
+					}
 				}
 								
-				if(node.getInLinks().size() == 2){					
+				if(node.getInLinks().size() == 2){
+					//check for pedestrian Signal in method
 					createPlansforTwoWayJunction(node, signalSystem);
 				}
 				
@@ -1156,6 +1177,10 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		int cycle = 90;
 		double lanesPair = (pair.getFirst().getLink().getNumberOfLanes() + pair.getSecond().getLink().getNumberOfLanes())/2;
 		int changeTime = (int) ((lanesPair)/(lanesPair + thirdArm.getLink().getNumberOfLanes())*cycle);
+		if(changeTime < 30)
+			changeTime = 30;
+		if(changeTime > 60)
+			changeTime = 60;
 		boolean firstIsCritical = false;		
 		List<Lane> criticalSignalLanes = new ArrayList<Lane>();
 		if(pair.getFirst().getRotationToOtherInLink(thirdArm) > Math.PI)
@@ -1189,8 +1214,12 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	private void createPlansforTwoWayJunction(Node node, SignalSystemData signalSystem){
 		List<LinkVector> inLinks = constructInLinkVectors(node);
 		double inLinksAngle = inLinks.get(0).getRotationToOtherInLink(inLinks.get(1));
+		int cycle = 90;
 		if(inLinksAngle > 3/4 * Math.PI && inLinksAngle < 5/4 * Math.PI ){
-			int cycle = 90;
+			if(!this.makePedestrianSignals){
+				this.systems.getSignalSystemData().remove(signalSystem.getId());
+				return;
+			}else{
 			SignalGroupData group = this.groups.getFactory().createSignalGroupData(signalSystem.getId(), Id.create("PedestrianSignal."+node.getId(), SignalGroup.class));
 			for(SignalData signal : signalSystem.getSignalData().values()){
 				group.addSignalId(signal.getId());
@@ -1201,9 +1230,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			SignalGroupSettingsData settings = createSetting(0, cycle - 15, node, group.getId());
 			plan.addSignalGroupSettings(settings);		
 			groups.addSignalGroupData(group);
+			}
 		}else{
-			log.info("Non-Pedestrian Two Way Junction detected @ " + node.getId());
-			int cycle = 90;
+			log.info("Non-Pedestrian Two Way Junction detected @ " + node.getId());			
 			SignalGroupData groupOne = createSignalGroup(1, signalSystem, node);
 			SignalSystemControllerData controller = createController(signalSystem);
 			SignalPlanData plan = createPlan(node, cycle);
@@ -1588,6 +1617,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				} else {
 					totalNofLanes = Double.parseDouble(lanesTag);
 				}
+				
 				if (lanesTagForw != null || lanesTagBack != null) {
 					if (lanesTagForw != null && lanesTagBack == null) {
 						nofLanesForw = Double.parseDouble(lanesTagForw);
@@ -1609,7 +1639,14 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						nofLanesBack /= 2.;
 					}
 				}
-
+				
+				if(totalNofLanes == 1){
+					if(oneway == false)
+						nofLanesForw = totalNofLanes;
+					if(onewayReverse == false)
+						nofLanesBack = totalNofLanes;
+				}
+				
 				// By default, the OSM lanes tag specifies the total number of
 				// lanes in both directions.
 				// So if the road is not oneway (onewayReverse), let's
@@ -1656,7 +1693,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			if(nofLanesBack < allTurnLanesBack.size()){
 				double totalNumberOfLanes = nofLanesForw + nofLanesBack;
 				nofLanesBack = allTurnLanesBack.size();
-				nofLanesForw = totalNumberOfLanes - nofLanesBack;
+				if(turnLanesForw == null)
+					nofLanesForw = totalNumberOfLanes - nofLanesBack;
 			}
 		}
 
@@ -1692,13 +1730,15 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						network.getNodes().get(toId));
 				l.setLength(length);
 				l.setFreespeed(freespeed);
+				if(nofLanesForw < 1)
+					nofLanesForw = 1;
 				l.setCapacity(laneCapacity * nofLanesForw);
 				l.setNumberOfLanes(nofLanesForw);
 				l.getAttributes().putAttribute(ORIG_ID, origId);
 				l.getAttributes().putAttribute(TYPE, highway);
 				
 				// create Lanes only if more than one Lane detected
-				if (nofLanesForw > 1) {
+				if (nofLanesForw > 1 && (bbox == null || bbox.contains(toNode.coord))) {
 					createLanes(l, lanes, nofLanesForw);
 					// if turn:lanes:forward exists save it for later, otherwise
 					// save turn:lanes or save nothing
@@ -1712,8 +1752,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				// checks if (to)Node is signalized and if signal applies for
 				// the direction
 //				if (toNode.signalized && toNode.signalDir != 2 && !signalTooClose(toNode, fromNode, l)) {
-				if (toNode.signalized) {
+				if (toNode.signalized && (bbox == null || bbox.contains(toNode.coord))) {
 					Id<SignalSystem> systemId = Id.create("System" + Long.valueOf(toId.toString()), SignalSystem.class);
+					log.warn("System created");
 					if (!this.systems.getSignalSystemData().containsKey(systemId)) {
 						SignalSystemData system = this.systems.getFactory().createSignalSystemData(systemId);
 						this.systems.getSignalSystemData().put(systemId, system);
@@ -1736,13 +1777,15 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						network.getNodes().get(fromId));
 				l.setLength(length);
 				l.setFreespeed(freespeed);
+				if(nofLanesBack < 1)
+					nofLanesBack = 1;
 				l.setCapacity(laneCapacity * nofLanesBack);
 				l.setNumberOfLanes(nofLanesBack);
 				l.getAttributes().putAttribute(ORIG_ID, origId);
 				l.getAttributes().putAttribute(TYPE, highway);
 				
 				// create Lanes only if more than one Lane detected
-				if (nofLanesBack > 1) {
+				if (nofLanesBack > 1 && (bbox == null || bbox.contains(fromNode.coord))) {
 					createLanes(l, lanes, nofLanesBack);
 					// if turn:lanes:forward exists save it for later, otherwise
 					// save turn:lanes or save nothing
@@ -1755,7 +1798,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				// checks if (to)Node is signalized and if signal applies for
 				// the direction
 //				if (fromNode.signalized && fromNode.signalDir != 1 && !signalTooClose(toNode, fromNode, l)) {
-				if (fromNode.signalized) {
+				if (fromNode.signalized && (bbox == null || bbox.contains(fromNode.coord))) {
 					Id<SignalSystem> systemId = Id.create("System" + Long.valueOf(fromId.toString()), SignalSystem.class);
 					if (!this.systems.getSignalSystemData().containsKey(systemId)) {
 						SignalSystemData system = this.systems.getFactory().createSignalSystemData(systemId);
@@ -1792,10 +1835,10 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		//lanesForLink.addLane(origLane);
 		for (int i = 1; i <= nofLanes; i++) {
 			Lane lane = lanes.getFactory().createLane(Id.create("Lane" + l.getId() + "." + i, Lane.class));
-			if(l.getLength()> 2*DEFAULT_LANE_OFFSET){
+			if(l.getLength()> DEFAULT_LANE_OFFSET){
 				lane.setStartsAtMeterFromLinkEnd(DEFAULT_LANE_OFFSET);
 			}else{
-				lane.setStartsAtMeterFromLinkEnd(l.getLength()/2);
+				lane.setStartsAtMeterFromLinkEnd(l.getLength()-1);
 			}
 			lane.setCapacityVehiclesPerHour(defaults.laneCapacity);
 			lanesForLink.addLane(lane);
@@ -2020,7 +2063,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					lane.addToLinkId(toLinks.get(reverseLink).getLink().getId());
 				if(reverseLink == toLinks.size()-1)
 					lane.addToLinkId(toLinks.get(toLinks.size()-2).getLink().getId());
-				lane.addToLinkId(toLinks.get(toLinks.size()-1).getLink().getId());
+				else
+					lane.addToLinkId(toLinks.get(toLinks.size()-1).getLink().getId());
 				lane.setAlignment(2);
 				lane.getAttributes().putAttribute(TO_LINK_REFERENCE, "Estimation_based_on_" + LANES_ESTIMATION);
 			}
@@ -2044,6 +2088,18 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					lane.setAlignment(1);
 				}
 			}
+			//check for all toLinks can be reached. If not, add to right Lane
+			if(link.getNumberOfLanes() == 2){
+				Lane leftLane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
+						.get(Id.create("Lane" + link.getId() + "." + "1", Lane.class));
+				Lane rightLane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
+						.get(Id.create("Lane" + link.getId() + "." + ((int) link.getNumberOfLanes()), Lane.class));
+				for(LinkVector lvec : toLinks){
+					if(!leftLane.getToLinkIds().contains(lvec.getLink().getId()) && !rightLane.getToLinkIds().contains(lvec.getLink().getId()))
+						rightLane.addToLinkId(lvec.getLink().getId());
+				}
+			}
+			
 			int midLink = -1;
 			if(modeMidLanes == 1 || modeMidLanes == 2){
 				for (int i = (int) link.getNumberOfLanes() - 1; i > 1; i--) {
@@ -2070,6 +2126,19 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						lane.addToLinkId(toLinks.get(midLink + 1).getLink().getId());											
 				}
 			}
+			//check for all toLinks can be reached. If not, add to second farthest right Lane
+			if(link.getNumberOfLanes() > 2){
+				List<Id<Link>> coveredLinks = new ArrayList<Id<Link>>();
+				Lane laneToPutTo = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
+						.get(Id.create("Lane" + link.getId() + "." + ((int) link.getNumberOfLanes()-1), Lane.class));
+				for(Lane lane : lanes.getLanesToLinkAssignments().get(link.getId()).getLanes().values())
+					coveredLinks.addAll(lane.getToLinkIds());
+				for(LinkVector lvec : toLinks){
+					if(!coveredLinks.contains(lvec.getLink().getId()))
+						laneToPutTo.addToLinkId(lvec.getLink().getId());
+				}
+			}
+			
 			Lane leftLane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
 					.get(Id.create("Lane" + link.getId() + "." + "1", Lane.class));
 			Long key = Long.valueOf(link.getToNode().getId().toString());
@@ -2119,7 +2188,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						if(!lvec.equals(reverseLink) || !this.allowUTurnAtLeftLaneOnly)
 							lane.addToLinkId(lvec.getLink().getId());
 					}
-					if(lane.getToLinkIds().isEmpty())
+					if(lane.getToLinkIds() == null)
 						lane.addToLinkId(throughLink.getLink().getId());
 				}
 				lane.setAlignment(0);
@@ -2286,6 +2355,28 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				// }
 			}
 		}
+	}
+	
+	public class BoundingBox{
+		private double south;
+		private double west;
+		private double north;
+		private double east;
+		
+		public BoundingBox(double south, double west, double north, double east){
+			this.south = south;
+			this.west = west;
+			this.north = north;
+			this.east = east;
+		}
+		
+		public boolean contains(Coord coord){
+			if((coord.getX() < this.east && coord.getX() > this.west) && (coord.getY() < this.north && coord.getY() > this.south))
+				return true;
+			else
+				return false;
+		}
+		
 	}
 
 	public class LinkVector implements Comparable<LinkVector> {
@@ -2466,8 +2557,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			// resNode.restrictionValue = this.restrictionValue;
 			if (resNode != null && fromRestricted != null && toRestricted != null) {
 				resNode.restrictions.add(this);
+				
 			} else {
-				log.warn("Restriction " + this.id + " incomplete! Not processed!");
+				log.warn("Restriction " + this.id + " incomplete! Not processed!");				
 			}
 		}
 	}
