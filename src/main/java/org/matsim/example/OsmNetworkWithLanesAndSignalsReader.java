@@ -607,13 +607,68 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		// Trying to simplify four-node- and two-node-junctions to one-node-junctions
 		List<OsmNode> addingNodes = new ArrayList<>();
 		List<OsmNode> checkedNodes = new ArrayList<>();
+		List<OsmWay> checkedWays = new ArrayList<>();
 		this.id = 1;
+		findingSmallRoundabouts(addingNodes, checkedNodes, checkedWays);
+		
 		findingFourNodeJunctions(addingNodes, checkedNodes);
 		
 		findingMoreNodeJunctions(addingNodes, checkedNodes);
 		
 		findingTwoNodeJunctions(addingNodes, checkedNodes);
-				
+		
+		for(OsmNode node : this.nodes.values()){
+			List<OsmNode> junctionNodes = new ArrayList<OsmNode>();
+			if(node.signalized && node.isAtJunction() && node.repJunNode == null && node.hasOneway()){
+				junctionNodes.add(node);
+				for(OsmNode otherNode : this.nodes.values()){
+					if(otherNode.signalized && otherNode.isAtJunction() && otherNode.getDistance(node) < SIGNAL_MERGE_DISTANCE && node.repJunNode == null && otherNode.hasOneway()){
+						junctionNodes.add(otherNode);
+					}
+				}
+			}
+			if (junctionNodes.size() > 1) {
+				double repXmin = 0;
+				double repXmax = 0;
+				double repYmin = 0;
+				double repYmax = 0;
+				double repX;
+				double repY;
+				for (OsmNode tempNode : junctionNodes) {
+					if(repXmin == 0 || tempNode.coord.getX() < repXmin)
+						repXmin = tempNode.coord.getX();
+					if(repXmax == 0 || tempNode.coord.getX() > repXmax)
+						repXmax = tempNode.coord.getX();
+					if(repYmin == 0 || tempNode.coord.getY() < repYmin)
+						repYmin = tempNode.coord.getY();
+					if(repYmax == 0 || tempNode.coord.getY() > repYmax)
+						repYmax = tempNode.coord.getY();
+				}
+				repX = repXmin + (repXmax - repXmin)/2;
+				repY = repYmin + (repYmax - repYmin)/2;
+				BoundingBox box = new BoundingBox(repYmin, repXmin, repYmax, repXmax);
+				for(OsmNode betweenNode : this.nodes.values()){
+					if(box.contains(betweenNode.coord))
+						junctionNodes.add(betweenNode);
+				}
+				OsmNode junctionNode = new OsmNode(this.id, new Coord(repX, repY));
+				junctionNode.signalized = true;
+				junctionNode.used = true;
+				for (OsmNode tempNode : junctionNodes) {
+					tempNode.repJunNode = junctionNode;
+					for(OsmRelation restriction : tempNode.restrictions)
+						junctionNode.restrictions.add(restriction);
+					checkedNodes.add(tempNode);
+				}
+				addingNodes.add(junctionNode);
+				log.info("last hope generated @ " + node.id);
+				id++;
+			}
+		}
+		
+		
+		
+		
 		for (OsmNode node : addingNodes) {
 			this.nodes.put(node.id, node);
 		}
@@ -794,64 +849,125 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		this.ways.clear();
 	}
 	
-	private void findingTwoNodeJunctions(List<OsmNode> addingNodes, List<OsmNode> checkedNodes) {
-		for (OsmNode node : this.nodes.values()) {			
-			if (!checkedNodes.contains(node) && node.used && node.isAtJunction()) {
-				boolean suit = false;
-				OsmNode otherNode = null;
-				boolean otherSuit = false;
-				for(OsmWay way : node.ways.values()){
-					String oneway = way.tags.get(TAG_ONEWAY);
-					if(oneway != null && !oneway.equals("no")){
-						suit = true;
-					}
-					for (int i = 0; i < way.nodes.size(); i++) {
-						if(otherSuit == true)
-							break;
-						otherNode = nodes.get(way.nodes.get(i));
-						if(node.getDistance(otherNode) < SIGNAL_MERGE_DISTANCE && !checkedNodes.contains(otherNode) && otherNode.isAtJunction() && otherNode.used && !node.equals(otherNode)){
-							for(OsmWay otherWay : otherNode.ways.values()){
-								if(!node.ways.containsKey(otherWay.id)){
-									String otherOneway = otherWay.tags.get(TAG_ONEWAY);
-									if(otherOneway != null && !otherOneway.equals("no")){
-										otherSuit = true;
-										break;
-									}	
-								}
+	private void findCloseJunctionNodesWithSignals(OsmNode firstNode, OsmNode node, List<OsmNode> junctionNodes, List<OsmNode> checkedNodes, double distance, boolean getAll) {
+			for (OsmWay way : node.ways.values()) {	
+				String oneway = way.tags.get(TAG_ONEWAY);
+				if(oneway != null){		// && (oneway.equals("yes") || oneway.equals("true") || oneway.equals("1"))						
+					for (int i = way.nodes.indexOf(node.id) + 1; i < way.nodes.size(); i++) {
+						OsmNode otherNode = nodes.get(way.nodes.get(i));
+	//					&& ((otherNode.endPoint && otherNode.ways.size() > 2)) || (otherNode.endPoint && otherNode.ways.size() == 2 && i != way.nodes.size()-1)
+						if (otherNode.used && !checkedNodes.contains(otherNode) && !junctionNodes.contains(otherNode)) {
+							if (node.getDistance(otherNode) < distance) {								
+								if(otherNode.id == firstNode.id){
+									junctionNodes.add(otherNode);
+									log.info("cyclefound!!!");
+								}else{
+																	
+									junctionNodes.add(otherNode);
+									findCloseJunctionNodesWithSignals(firstNode, otherNode, junctionNodes, checkedNodes, distance, getAll);
+									if(!junctionNodes.contains(firstNode)){
+										junctionNodes.remove(otherNode);
+									}
+								}						
 							}
-						}
-					}
-					if(suit == true && otherSuit == true)
-						break;					
+							break;
+						}	
+					}				
 				}
-				if(suit == true && otherSuit == true && otherNode != null){
-					double repX = (node.coord.getX() + otherNode.coord.getX())/2;
-					double repY = (node.coord.getY() + otherNode.coord.getY())/2;
-					OsmNode junctionNode = new OsmNode(this.id, new Coord(repX, repY));
-					if(node.signalized || otherNode.signalized)
-						junctionNode.signalized = true;
-					junctionNode.used = true;
-					node.repJunNode = junctionNode;
-					for(OsmRelation restriction : node.restrictions)
-						junctionNode.restrictions.add(restriction);
-					checkedNodes.add(node);
-					otherNode.repJunNode = junctionNode;
-					for(OsmRelation restriction : otherNode.restrictions)
-						junctionNode.restrictions.add(restriction);
-					checkedNodes.add(otherNode);
-					addingNodes.add(junctionNode);
-					id++;
+				if(junctionNodes.contains(firstNode) && !getAll)
+					break;
+	//			int size = junctionNodes.size();
+	//			log.warn("Check started at Node: " + firstNode.id + "\n \t checking way: " + way.id + " JN size = " + size);
+			}
+		}
+
+//	private void lookForRoundabout(OsmNode node, OsmNode startNode, List<OsmNode> roundaboutNodes, List<OsmNode> checkedNodes, List<OsmWay> checkedWays) {
+//		for (OsmWay way : node.ways.values()) {
+//			String roundabout = way.tags.get(TAG_JUNCTION);
+//			if(roundabout != null && roundabout.equals("roundabout") && !checkedWays.contains(way)){
+//				for (int i = 1; i < way.nodes.size(); i++) {
+//					OsmNode rbNode = this.nodes.get(way.nodes.get(i));
+//					if (!checkedNodes.contains(rbNode) && !roundaboutNodes.contains(rbNode) && !rbNode.signalized) {
+//						if(rbNode.id == startNode.id){
+//							roundaboutNodes.add(rbNode);
+//						}else{							
+//							roundaboutNodes.add(rbNode);
+//							lookForRoundabout(startNode, rbNode, roundaboutNodes, checkedNodes, checkedWays);
+//							if(!roundaboutNodes.contains(startNode)){
+//								roundaboutNodes.remove(rbNode);
+//							}
+//						}
+//						break;
+//					}
+//				}
+//				if(roundaboutNodes.contains(startNode))
+//					break;
+//			}			
+//		}
+//	}
+
+	private void findingSmallRoundabouts(List<OsmNode> addingNodes, List<OsmNode> checkedNodes, List<OsmWay> checkedWays) {
+		for (OsmWay way : this.ways.values()) {
+			String roundabout = way.tags.get(TAG_JUNCTION);
+			if(roundabout != null && roundabout.equals("roundabout") && !checkedWays.contains(way)){
+				List<OsmNode> roundaboutNodes = new ArrayList<>();				
+				double radius = 20;
+//					lookForRoundabout(startNode, startNode, roundaboutNodes, checkedNodes, checkedWays);
+				if(this.nodes.get(way.nodes.get(0)).equals(this.nodes.get(way.nodes.get(way.nodes.size()-1)))){
+					checkedWays.add(way);
+					for(Long nodeId : way.nodes){
+						roundaboutNodes.add(this.nodes.get(nodeId));
+					}
+				}
+				
+				if (roundaboutNodes.size() > 1) {
+					double repXmin = 0;
+					double repXmax = 0;
+					double repYmin = 0;
+					double repYmax = 0;
+					double repX;
+					double repY;			
+					OsmNode lastNode = roundaboutNodes.get(roundaboutNodes.size()-1);
+					double circumference = 0;
+					for (OsmNode tempNode : roundaboutNodes) {
+						if(repXmin == 0 || tempNode.coord.getX() < repXmin)
+							repXmin = tempNode.coord.getX();
+						if(repXmax == 0 || tempNode.coord.getX() > repXmax)
+							repXmax = tempNode.coord.getX();
+						if(repYmin == 0 || tempNode.coord.getY() < repYmin)
+							repYmin = tempNode.coord.getY();
+						if(repYmax == 0 || tempNode.coord.getY() > repYmax)
+							repYmax = tempNode.coord.getY();
+						circumference += tempNode.getDistance(lastNode);
+						lastNode = tempNode;
+					}
+					repX = repXmin + (repXmax - repXmin)/2;
+					repY = repYmin + (repYmax - repYmin)/2;
+					if((circumference/(2*Math.PI)) < radius ){
+						OsmNode roundaboutNode = new OsmNode(this.id, new Coord(repX, repY));					
+						roundaboutNode.used = true;
+						for (OsmNode tempNode : roundaboutNodes) {
+							tempNode.repJunNode = roundaboutNode;
+							for(OsmRelation restriction : tempNode.restrictions)
+								roundaboutNode.restrictions.add(restriction);
+							checkedNodes.add(tempNode);
+							tempNode.used = true;
+						}
+						addingNodes.add(roundaboutNode);					
+						log.info("Roundabout-Node created @ Way " + way.id + " with id " + id);
+						id++;
+					}
 				}
 			}
-		}		
+		}
 	}
 
 	private void findingMoreNodeJunctions(List<OsmNode> addingNodes, List<OsmNode> checkedNodes) {
 		for (OsmNode node : this.nodes.values()) {			
-			if (!checkedNodes.contains(node) && node.used && node.ways.size() > 1) {				
+			if (!checkedNodes.contains(node) && node.used && node.ways.size() > 1) {
 				List<OsmNode> junctionNodes = new ArrayList<>();				
 				double distance = 40;
-				findCloseJunctionNodesWithSignals(node, node, junctionNodes, checkedNodes, distance);
+				findCloseJunctionNodesWithSignals(node, node, junctionNodes, checkedNodes, distance, true);
 				
 				if (junctionNodes.size() > 1) {
 					double repXmin = 0;
@@ -896,12 +1012,72 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 	}
 
+	private void findingTwoNodeJunctions(List<OsmNode> addingNodes, List<OsmNode> checkedNodes) {
+		for (OsmNode node : this.nodes.values()) {
+			if (!checkedNodes.contains(node) && node.used && node.isAtJunction() ) {
+				boolean suit = false;
+				OsmNode otherNode = null;
+				boolean otherSuit = false;
+				for(OsmWay way : node.ways.values()){
+					String oneway = way.tags.get(TAG_ONEWAY);
+					if(oneway != null && !oneway.equals("no")){
+						suit = true;
+					}
+				}
+				if(suit){
+					for(OsmWay way : node.ways.values()){
+						String oneway = way.tags.get(TAG_ONEWAY);
+						if(oneway != null && !oneway.equals("no"))
+							break;
+						for (int i = 0; i < way.nodes.size(); i++) {
+							if(otherSuit == true)
+								break;
+							otherNode = nodes.get(way.nodes.get(i));
+							
+							if(node.getDistance(otherNode) < SIGNAL_MERGE_DISTANCE && !checkedNodes.contains(otherNode) && otherNode.isAtJunction() && otherNode.used && !node.equals(otherNode) && node.signalized == otherNode.signalized){
+								for(OsmWay otherWay : otherNode.ways.values()){
+									if(!node.ways.containsKey(otherWay.id)){
+										String otherOneway = otherWay.tags.get(TAG_ONEWAY);
+										if(otherOneway != null && !otherOneway.equals("no")){
+											otherSuit = true;
+											break;
+										}	
+									}
+								}
+							}
+						}
+						if(suit == true && otherSuit == true)
+							break;					
+					}
+					if(suit == true && otherSuit == true && otherNode != null){
+						double repX = (node.coord.getX() + otherNode.coord.getX())/2;
+						double repY = (node.coord.getY() + otherNode.coord.getY())/2;
+						OsmNode junctionNode = new OsmNode(this.id, new Coord(repX, repY));
+						if(node.signalized || otherNode.signalized)
+							junctionNode.signalized = true;
+						junctionNode.used = true;
+						node.repJunNode = junctionNode;
+						for(OsmRelation restriction : node.restrictions)
+							junctionNode.restrictions.add(restriction);
+						checkedNodes.add(node);
+						otherNode.repJunNode = junctionNode;
+						for(OsmRelation restriction : otherNode.restrictions)
+							junctionNode.restrictions.add(restriction);
+						checkedNodes.add(otherNode);
+						addingNodes.add(junctionNode);
+						id++;
+					}
+				}
+			}
+		}		
+	}
+
 	private void findingFourNodeJunctions(List<OsmNode> addingNodes, List<OsmNode> checkedNodes) {
 		for (OsmNode node : this.nodes.values()) {			
 			if (!checkedNodes.contains(node) && node.used && node.signalized && node.ways.size() > 1) {				
 				List<OsmNode> junctionNodes = new ArrayList<>();				
 				double distance = 30;
-				findCloseJunctionNodesWithSignals(node, node, junctionNodes, checkedNodes, distance);
+				findCloseJunctionNodesWithSignals(node, node, junctionNodes, checkedNodes, distance, false);
 				
 				if (junctionNodes.size() == 4) {
 					double repX = 0;
@@ -1477,39 +1653,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		}
 	}
 
-	private void findCloseJunctionNodesWithSignals(OsmNode firstNode, OsmNode node, List<OsmNode> junctionNodes, List<OsmNode> checkedNodes, double distance) {
-		for (OsmWay way : node.ways.values()) {	
-			String oneway = way.tags.get(TAG_ONEWAY);
-			if(oneway != null){		// && (oneway.equals("yes") || oneway.equals("true") || oneway.equals("1"))						
-				for (int i = way.nodes.indexOf(node.id) + 1; i < way.nodes.size(); i++) {
-					OsmNode otherNode = nodes.get(way.nodes.get(i));
-//					&& ((otherNode.endPoint && otherNode.ways.size() > 2)) || (otherNode.endPoint && otherNode.ways.size() == 2 && i != way.nodes.size()-1)
-					if (otherNode.used && !checkedNodes.contains(otherNode) && !junctionNodes.contains(otherNode)) {
-						if (node.getDistance(otherNode) < distance) {								
-							if(otherNode.id == firstNode.id){
-								junctionNodes.add(otherNode);
-								log.info("cyclefound!!!");
-							}else{
-																
-								junctionNodes.add(otherNode);
-								findCloseJunctionNodesWithSignals(firstNode, otherNode, junctionNodes, checkedNodes, distance);
-								if(!junctionNodes.contains(firstNode)){
-									junctionNodes.remove(otherNode);
-								}
-							}						
-						}
-						break;
-					}	
-				}				
-			}
-			if(junctionNodes.contains(firstNode))
-				break;
-//			int size = junctionNodes.size();
-//			log.warn("Check started at Node: " + firstNode.id + "\n \t checking way: " + way.id + " JN size = " + size);
-		}
-	}
-	
-//	private List<OsmNode> findCloseJunctionNodesWithout(OsmNode node, List<OsmNode> junctionNodes) {
+	//	private List<OsmNode> findCloseJunctionNodesWithout(OsmNode node, List<OsmNode> junctionNodes) {
 //		for (OsmWay way : node.ways.values()) {								
 //			for (int i = 0; i < way.nodes.size(); i++) {
 //				OsmNode otherNode = nodes.get(way.nodes.get(i));
@@ -2496,7 +2640,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			this.id = id;
 			this.coord = coord;
 		}
-
+		
 		public boolean isAtJunction() {
 			if(this.endPoint && this.ways.size() > 2)
 				return true;
@@ -2521,14 +2665,28 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			double distance = Math.sqrt(x*x + y*y);
 			return distance;
 		}
+		
+		private boolean hasOneway(){
+			boolean hasOneway = false;
+			for(OsmWay way : this.ways.values()){
+				String oneway = way.tags.get(TAG_ONEWAY);
+				if(oneway != null && !oneway.equals("no"))
+					hasOneway = true;
+			}
+			return hasOneway;
+		}
+		
+		public boolean isOnRoundabout() {
+			boolean isOnRoundabout = false;
+			for(OsmWay way : this.ways.values()){
+				String roundabout = way.tags.get(TAG_JUNCTION);
+				if(roundabout != null && roundabout.equals("roundabout"))
+					isOnRoundabout = true;
+			}
+			return isOnRoundabout;
+		}
 	}
-
-	// private static class OsmRestriction {
-	// public OsmWay fromRestricted;
-	// public OsmWay toRestricted;
-	// public int restrictionValue = 0;
-	// }
-
+	
 	private static class OsmWay {
 		public final long id;
 		public final List<Long> nodes = new ArrayList<Long>(4);
