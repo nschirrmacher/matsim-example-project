@@ -136,6 +136,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 	private final static int INTERGREENTIME = 5;
 	private final static int SECOND_PHASE_TIME = 10;
 	private final static double SIGNAL_MERGE_DISTANCE = 40.0;
+	private final static double SIGNAL_LANES_CAPACITY = 2000.0;
 	
 	private final static String ORIG_ID = "origId";
 	private final static String TYPE = "type";
@@ -799,6 +800,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				if(node.getInLinks().size() == 2){
 					//check for pedestrian Signal in method
 					createPlansforTwoWayJunction(node, signalSystem);
+					if(this.systems.getSignalSystemData().containsKey(systemId))
+						setInLinksCapacities(node);
 				}
 				
 				if(node.getInLinks().size() == 3){
@@ -812,6 +815,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 						}	
 					}					
 					createPlansforThreeWayJunction(node, signalSystem, pair, thirdArm);
+					setInLinksCapacities(node);
 				}
 				
 				if(node.getInLinks().size() == 4){
@@ -833,6 +837,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					}
 					Tuple<LinkVector, LinkVector> secondPair = new Tuple<LinkVector, LinkVector>(first, second);
 					createPlansForFourWayJunction(node, signalSystem, firstPair, secondPair);
+					setInLinksCapacities(node);
 				}
 				
 				if(node.getInLinks().size() > 4){
@@ -849,6 +854,39 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		this.ways.clear();
 	}
 	
+	private void setInLinksCapacities(Node node) {
+		List<LinkVector> inLinks = constructInLinkVectors(node);
+		for(LinkVector lvec : inLinks){			
+			if(this.lanes.getLanesToLinkAssignments().containsKey(lvec.getLink().getId())){
+				Lane origLane = null;
+				double olCapacity = 0;
+				for(Lane lane : this.lanes.getLanesToLinkAssignments().get(lvec.getLink().getId()).getLanes().values()){
+					if(lane.getAttributes().getAttribute(IS_ORIG_LANE).equals(false)){
+						lane.setCapacityVehiclesPerHour(SIGNAL_LANES_CAPACITY);
+						if(this.useRadiusReduction){
+							Long key = Long.valueOf(lvec.getLink().getToNode().getId().toString());
+							if(lane.getAlignment() == 2 && this.turnRadii.containsKey(key)){
+								double radius = this.turnRadii.get(key);
+								double reductionFactor = getRadiusCapacityReductionFactor(radius);
+								lane.setCapacityVehiclesPerHour(lane.getCapacityVehiclesPerHour()*reductionFactor);
+								log.warn("Asked for factor with radius " + radius + " at Link " + lvec.getLink().getId());
+							}else if(lane.getAlignment() == 2 || lane.getAlignment() == -2){
+								double reductionFactor = getRadiusCapacityReductionFactor(0);
+								lane.setCapacityVehiclesPerHour(lane.getCapacityVehiclesPerHour()*reductionFactor);
+							}
+						}
+						olCapacity += lane.getCapacityVehiclesPerHour();
+					}else{
+						origLane = lane;
+					}
+				}
+				origLane.setCapacityVehiclesPerHour(olCapacity);
+			}else{
+				lvec.getLink().setCapacity(SIGNAL_LANES_CAPACITY);
+			}
+		}
+	}
+
 	private void findCloseJunctionNodesWithSignals(OsmNode firstNode, OsmNode node, List<OsmNode> junctionNodes, List<OsmNode> checkedNodes, double distance, boolean getAll) {
 			for (OsmWay way : node.ways.values()) {	
 				String oneway = way.tags.get(TAG_ONEWAY);
@@ -2144,13 +2182,13 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				if(laneStack.size() == 1)
 					leftLane = true;
 				setToLinksForLaneWithTurnLanes(lane, laneStack.pop(), linkVectors, leftLane);
-				Long key = Long.valueOf(link.getToNode().getId().toString());
-				if(lane.getAlignment() == 2 && this.turnRadii.containsKey(key) && this.useRadiusReduction){
-					double radius = this.turnRadii.get(key);
-					double reductionFactor = getRadiusCapacityReductionFactor(radius);
-					lane.setCapacityVehiclesPerHour(lane.getCapacityVehiclesPerHour()*reductionFactor);
-					log.warn("Asked for factor with radius " + radius + " at Link " + link.getId());
-				}
+//				Long key = Long.valueOf(link.getToNode().getId().toString());
+//				if(lane.getAlignment() == 2 && this.turnRadii.containsKey(key) && this.useRadiusReduction){
+//					double radius = this.turnRadii.get(key);
+//					double reductionFactor = getRadiusCapacityReductionFactor(radius);
+//					lane.setCapacityVehiclesPerHour(lane.getCapacityVehiclesPerHour()*reductionFactor);
+//					log.warn("Asked for factor with radius " + radius + " at Link " + link.getId());
+//				}
 			}
 		} else {
 			setToLinksForLanesDefault(link, linkVectors);
@@ -2283,15 +2321,15 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				}
 			}
 			
-			Lane leftLane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
-					.get(Id.create("Lane" + link.getId() + "." + "1", Lane.class));
-			Long key = Long.valueOf(link.getToNode().getId().toString());
-			if(leftLane.getAlignment() == 2 && this.turnRadii.containsKey(key) && this.useRadiusReduction){
-				double radius = this.turnRadii.get(key);
-				double reductionFactor = getRadiusCapacityReductionFactor(radius);
-				leftLane.setCapacityVehiclesPerHour(leftLane.getCapacityVehiclesPerHour()*reductionFactor);
-				log.warn("Asked for factor with radius " + radius + " at Link " + link.getId());
-			}
+//			Lane leftLane = lanes.getLanesToLinkAssignments().get(link.getId()).getLanes()
+//					.get(Id.create("Lane" + link.getId() + "." + "1", Lane.class));
+//			Long key = Long.valueOf(link.getToNode().getId().toString());
+//			if(leftLane.getAlignment() == 2 && this.turnRadii.containsKey(key) && this.useRadiusReduction){
+//				double radius = this.turnRadii.get(key);
+//				double reductionFactor = getRadiusCapacityReductionFactor(radius);
+//				leftLane.setCapacityVehiclesPerHour(leftLane.getCapacityVehiclesPerHour()*reductionFactor);
+//				log.warn("Asked for factor with radius " + radius + " at Link " + link.getId());
+//			}
 		}
 	}
 
