@@ -862,7 +862,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				double olCapacity = 0;
 				for(Lane lane : this.lanes.getLanesToLinkAssignments().get(lvec.getLink().getId()).getLanes().values()){
 					if(lane.getAttributes().getAttribute(IS_ORIG_LANE).equals(false)){
-						lane.setCapacityVehiclesPerHour(SIGNAL_LANES_CAPACITY);
+						lane.setCapacityVehiclesPerHour(SIGNAL_LANES_CAPACITY*lane.getNumberOfRepresentedLanes());
 						if(this.useRadiusReduction){
 							Long key = Long.valueOf(lvec.getLink().getToNode().getId().toString());
 							if(lane.getAlignment() == 2 && this.turnRadii.containsKey(key)){
@@ -882,7 +882,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				}
 				origLane.setCapacityVehiclesPerHour(olCapacity);
 			}else{
-				lvec.getLink().setCapacity(SIGNAL_LANES_CAPACITY);
+				lvec.getLink().setCapacity(SIGNAL_LANES_CAPACITY*lvec.getLink().getNumberOfLanes());
 			}
 		}
 	}

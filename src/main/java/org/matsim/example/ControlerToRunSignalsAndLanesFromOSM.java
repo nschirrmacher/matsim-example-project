@@ -38,7 +38,7 @@ import org.matsim.core.scenario.ScenarioUtils;
 public class ControlerToRunSignalsAndLanesFromOSM {
 	private final static String configInputFile = "./input/runCottbusWithSignalsAndLanes/config.xml";
 	private final static String planInputFile_spreeNeisse = "commuter_population_wgs84_utm33n_car_only_woLinks.xml.gz";
-	private final static String outputDir = "./output/runCottbusWithSignalsAndLanes/output/test4/";
+	private final static String outputDir = "./output/runCottbusWithSignalsAndLanes/output/test3/";
 	
 	private final static double flowCapFactor = 0.7;
 	private final static int timeBinSize = 60; // in seconds. use 60 or 900 if your machine does not make it (i.e. run is to slow)

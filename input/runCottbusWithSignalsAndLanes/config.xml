@@ -14,7 +14,7 @@
 		<param name="firstIteration" value="0" />
 
 		<!-- Default=1000;  -->
-		<param name="lastIteration" value="100" />
+		<param name="lastIteration" value="250" />
 
 		<param name="outputDirectory" value="" />
 
@@ -22,7 +22,7 @@
 		<param name="overwriteFiles" value="overwriteExistingFiles" />
 
 		<!-- iterationNumber % writeEventsInterval == 0 defines in which iterations events are written to a file. `0' disables events writing completely. -->
-		<param name="writeEventsInterval" value="20" />
+		<param name="writeEventsInterval" value="10" />
 
 		<!-- iterationNumber % writePlansInterval == 0 defines (hopefully) in which iterations plans are written to a file. `0' disables plans writing completely.  Some plans in early iterations are always written -->
 		<param name="writePlansInterval" value="0" />
@@ -245,7 +245,7 @@
 		<param name="storageCapacityFactor" value="1.0" />
 
 		<!-- time in seconds.  Time after which the frontmost vehicle on a link is called `stuck' if it does not move. -->
-		<param name="stuckTime" value="3600.0" />
+		<param name="stuckTime" value="360.0" />
 
 		<!-- Set this parameter to true if lanes should be used, false if not. -->
 		<param name="useLanes" value="true" />
@@ -278,7 +278,7 @@
 		<parameterset type="strategysettings" >
 
 			<!-- iteration after which strategy will be disabled.  most useful for ``innovative'' strategies (new routes, new times, ...). Normally, better use fractionOfIterationsToDisableInnovation -->
-			<param name="disableAfterIteration" value="80" />
+			<param name="disableAfterIteration" value="200" />
 
 			<!-- strategyName of strategy.  Possible default names: SelectRandomBestScoreKeepLastSelectedChangeExpBetaSelectExpBetaSelectPathSizeLogit (selectors), ReRoute TimeAllocationMutator ChangeLegMode TimeAllocationMutator_ReRoute ChangeSingleLegMode ChangeSingleTripMode SubtourModeChoice ChangeTripMode TripSubtourModeChoice  (innovative strategies). -->
 			<param name="strategyName" value="ReRoute" />
@@ -290,8 +290,7 @@
 		<parameterset type="strategysettings" >
 
 			<!-- iteration after which strategy will be disabled.  most useful for ``innovative'' strategies (new routes, new times, ...). Normally, better use fractionOfIterationsToDisableInnovation -->
-			<param name="disableAfterIteration" value="50" />
-
+			<param name="disableAfterIteration" value="250" />
 			<!-- strategyName of strategy.  Possible default names: SelectRandomBestScoreKeepLastSelectedChangeExpBetaSelectExpBetaSelectPathSizeLogit (selectors), ReRoute TimeAllocationMutator ChangeLegMode TimeAllocationMutator_ReRoute ChangeSingleLegMode ChangeSingleTripMode SubtourModeChoice ChangeTripMode TripSubtourModeChoice  (innovative strategies). -->
 			<param name="strategyName" value="ChangeExpBeta" />
 
