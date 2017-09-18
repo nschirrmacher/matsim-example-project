@@ -1,8 +1,5 @@
 package org.matsim.example;
 
-import java.util.Set;
-import java.util.TreeSet;
-
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.contrib.signals.SignalSystemsConfigGroup;
@@ -12,7 +9,6 @@ import org.matsim.contrib.signals.data.SignalsScenarioWriter;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.config.ConfigWriter;
-import org.matsim.core.network.algorithms.NetworkCalcTopoType;
 import org.matsim.core.network.algorithms.NetworkCleaner;
 import org.matsim.core.network.io.NetworkWriter;
 import org.matsim.core.scenario.ScenarioUtils;
@@ -22,7 +18,6 @@ import org.matsim.dgretherCopies.SignalSystemsDataConsistencyChecker;
 import org.matsim.lanes.data.Lanes;
 import org.matsim.lanes.data.LanesWriter;
 
-import playground.dgrether.koehlerstrehlersignal.network.NetworkLanesSignalsSimplifier;
 import playground.dgrether.lanes.LanesConsistencyChecker;
 import playground.dgrether.signalsystems.data.consistency.SignalControlDataConsistencyChecker;
 import playground.dgrether.signalsystems.data.consistency.SignalGroupsDataConsistencyChecker;
@@ -51,23 +46,6 @@ public class RunPNetworkGenerator {
 	
 	
 	public static void main(String[] args) {
-		
-
-		/*
-		 * The input file name.
-		 */
-//		String osm = "./input/map_cottbus.osm";
-		
-		/*
-		 * The coordinate system to use. OpenStreetMap uses WGS84, but for MATSim, we need a projection where distances
-		 * are (roughly) euclidean distances in meters.
-		 * 
-		 * UTM 33N is one such possibility (for parts of Europe, at least).
-		 * 
-		 */
-		CoordinateTransformation ct = 
-			 TransformationFactory.getCoordinateTransformation(TransformationFactory.WGS84, TransformationFactory.WGS84_UTM33N);
-		
 		/*
 		 * First, create a new Config and a new Scenario. One always has to do this when working with the MATSim 
 		 * data containers.
@@ -95,7 +73,15 @@ public class RunPNetworkGenerator {
 				
 		if (parseOSM) {
 			OsmNetworkWithLanesAndSignalsReader reader = new OsmNetworkWithLanesAndSignalsReader(network, CT, signalsData, lanes);
-			reader.setBoundingBox(51.7464, 14.3087, 51.7761, 14.3639);
+			reader.setAssumptions(
+					false, //minimize small roundabouts
+					false, //merge oneway Signal Systems
+					false, //use radius reduction
+					true, //allow U-turn at left lane only
+					true, //make pedestrian signals
+					false,//accept 4+ crossings
+					"realistic_very_restricted");//set lanes estimation modes
+			reader.setBoundingBox(51.7464, 14.3087, 51.7761, 14.3639); //setting Bounding Box for signals and lanes (south,west,north,east)
 			reader.parse(OSM);
 		}
 		
@@ -104,21 +90,7 @@ public class RunPNetworkGenerator {
 		 * to every other link. This may not be the case in the initial network converted from OpenStreetMap.
 		 */		
 			
-		cleanNetworkLanesAndSignals(scenario, config);		
-		
-		// TODO check if that works - does not work because of missing Links that are assigned to Signals
-		// run a network simplifier to merge links with same attributes
-//		Set<Integer> nodeTypesToMerge = new TreeSet<Integer>();
-//		nodeTypesToMerge.add(NetworkCalcTopoType.PASS1WAY); // PASS1WAY: 1 in- and 1 outgoing link
-//		nodeTypesToMerge.add(NetworkCalcTopoType.PASS2WAY); // PASS2WAY: 2 in- and 2 outgoing links
-//		NetworkLanesSignalsSimplifier nsimply = new NetworkLanesSignalsSimplifier();
-//		nsimply.setNodesToMerge(nodeTypesToMerge);
-//		nsimply.setSimplifySignalizedNodes(false);
-//		nsimply.setMaximalLinkLength(Double.MAX_VALUE);
-//		nsimply.simplifyNetworkLanesAndSignals(network, lanes, signalsData);
-//		
-//		cleanNetworkLanesAndSignals(scenario, config);
-				
+		cleanNetworkLanesAndSignals(scenario, config);						
 		writeOutput(scenario);
 	}
 
