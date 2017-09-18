@@ -2219,7 +2219,8 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					if(straightLink < toLinks.size()-2){
 						if(reverseLink == toLinks.size()-1)
 							lane.addToLinkId(toLinks.get(toLinks.size()-3).getLink().getId());
-						lane.addToLinkId(toLinks.get(toLinks.size()-2).getLink().getId());
+						else
+							lane.addToLinkId(toLinks.get(toLinks.size()-2).getLink().getId());
 					}
 					lane.setAlignment(1);
 				}
