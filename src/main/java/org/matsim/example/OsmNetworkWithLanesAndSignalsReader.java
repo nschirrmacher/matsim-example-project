@@ -2287,7 +2287,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		LinkVector reverseLink = toLinks.get(0);
 		double maxDiff = 0;
 		for (LinkVector lvec : toLinks) {
-			double diff = Math.abs(lvec.dirAlpha - Math.PI);
+			double diff = Math.abs(lvec.dirTheta - Math.PI);
 			if (diff < minDiff) {
 				minDiff = diff;
 				throughLink = lvec;
@@ -2325,7 +2325,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			if (tempDir < 0 && tempDir > -5) { // all right directions (right,
 												// slight_right,sharp_right)
 				for (LinkVector lvec : tempLinks) {
-					if (lvec.dirAlpha < (1 - THROUGHLINK_ANGLE_TOLERANCE) * Math.PI)
+					if (lvec.dirTheta < (1 - THROUGHLINK_ANGLE_TOLERANCE) * Math.PI)
 						tempLinks.add(lvec);
 				}
 				if (tempLinks.size() == 1) { // if there is just one "right"
@@ -2337,7 +2337,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 							lane.addToLinkId(lvec.getLink().getId());
 					}
 					if (tempDir == -2) { // lane direction: "slight_right"
-						if (tempLinks.get(0).dirAlpha < Math.PI / 2)
+						if (tempLinks.get(0).dirTheta < Math.PI / 2)
 							lane.addToLinkId(tempLinks.get(1).getLink().getId());
 						else
 							lane.addToLinkId(tempLinks.get(0).getLink().getId());
@@ -2355,7 +2355,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				if(alignmentAnte == 0 && it == 1)
 					alignmentAnte = -10;
 				for (LinkVector lvec : toLinks) {
-					if (lvec.dirAlpha > (1 + THROUGHLINK_ANGLE_TOLERANCE) * Math.PI )
+					if (lvec.dirTheta > (1 + THROUGHLINK_ANGLE_TOLERANCE) * Math.PI )
 						tempLinks.add(lvec);
 				}
 				if (tempLinks.size() == 1) { 	// if there is just one "left"
@@ -2368,7 +2368,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 								lane.addToLinkId(lvec.getLink().getId());
 					}
 					if (tempDir == 2) { // lane direction: "slight_left" 
-						if (tempLinks.get(1).dirAlpha > 3 * Math.PI / 2 || !tempLinks.get(1).equals(reverseLink))
+						if (tempLinks.get(1).dirTheta > 3 * Math.PI / 2 || !tempLinks.get(1).equals(reverseLink))
 							lane.addToLinkId(tempLinks.get(0).getLink().getId());
 						else
 							lane.addToLinkId(tempLinks.get(1).getLink().getId());
@@ -2491,45 +2491,45 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		private Link link;
 		private double x;
 		private double y;
-		private double alpha;
-		private double dirAlpha;
+		private double theta;
+		private double dirTheta;
 
 		public LinkVector(Link link) {
 			this.link = link;
 			this.x = this.link.getToNode().getCoord().getX() - link.getFromNode().getCoord().getX();
 			this.y = this.link.getToNode().getCoord().getY() - link.getFromNode().getCoord().getY();
-			this.calculateAlpha();
+			this.calculateTheta();
 		}
 
-		private void calculateAlpha(){
+		private void calculateTheta(){
 			if (this.y >= 0){
-				this.alpha = Math.atan2(this.y, this.x);
+				this.theta = Math.atan2(this.y, this.x);
 			}else{
-				this.alpha = 2*Math.PI + Math.atan2(this.y, this.x);
+				this.theta = 2*Math.PI + Math.atan2(this.y, this.x);
 			}
 		}
 
 		public void calculateRotation(LinkVector linkVector) {
-			if(this.alpha <= Math.PI)
-				this.dirAlpha = this.alpha - linkVector.getAlpha() + Math.PI;
+			if(this.theta <= Math.PI)
+				this.dirTheta = this.theta - linkVector.getAlpha() + Math.PI;
 			else
-				this.dirAlpha = this.alpha - linkVector.getAlpha() - Math.PI;
-			if (this.dirAlpha < 0) {
-				this.dirAlpha += 2 * Math.PI;
+				this.dirTheta = this.theta - linkVector.getAlpha() - Math.PI;
+			if (this.dirTheta < 0) {
+				this.dirTheta += 2 * Math.PI;
 			}
 
 		}
 
 		public double getAlpha() {
-			return this.alpha;
+			return this.theta;
 		}
 
 		public double getRotation() {
-			return this.dirAlpha;
+			return this.dirTheta;
 		}
 		
 		public double getRotationToOtherInLink(LinkVector linkVector){
-			double rotation = linkVector.getAlpha() - this.alpha;
+			double rotation = linkVector.getAlpha() - this.theta;
 			if (rotation < 0) {
 				rotation += 2 * Math.PI;
 			}
@@ -2543,9 +2543,9 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		@Override
 		public int compareTo(LinkVector lv) {
 			double otherDirAlpha = lv.getRotation();
-			if (this.dirAlpha == otherDirAlpha)
+			if (this.dirTheta == otherDirAlpha)
 				return 0;
-			if (this.dirAlpha > otherDirAlpha)
+			if (this.dirTheta > otherDirAlpha)
 				return 1;
 			else
 				return -1;
