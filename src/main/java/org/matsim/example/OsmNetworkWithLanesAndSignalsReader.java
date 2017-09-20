@@ -708,12 +708,12 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 					// if there exists an Restriction in the ToNode, we want to
 					// create a Lane to represent the restriction,
 					// as the toLinks cannot be restricted otherwise 
-						List<LinkVector> linkVectors = constructOrderedOutLinkVectors(link);
+						List<LinkVector> outLinks = constructOrderedOutLinkVectors(link);
 						createLanes(link, lanes, 1);						
-						removeRestrictedLinks(link, linkVectors);
+						removeRestrictedLinks(link, outLinks);
 						LanesToLinkAssignment l2l = lanes.getLanesToLinkAssignments().get(link.getId());
 						Id<Lane> LaneId = Id.create("Lane" + link.getId() + ".1", Lane.class);
-						for (LinkVector lvec : linkVectors) {
+						for (LinkVector lvec : outLinks) {
 							Id<Link> toLink = lvec.getLink().getId();
 							Lane lane = l2l.getLanes().get(LaneId);
 							lane.addToLinkId(toLink);
