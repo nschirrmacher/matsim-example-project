@@ -2280,7 +2280,6 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 
 	// Fills Lanes with turn:lane informations
 	private void setToLinksForLaneWithTurnLanes(Lane lane, Stack<Integer> laneStack, List<LinkVector> toLinks, boolean leftLane) {
-		lane.getAttributes().putAttribute(TO_LINK_REFERENCE, "OSM-Information");
 		int alignmentAnte;
 		LinkVector throughLink = toLinks.get(0);	
 		double minDiff = Math.PI;
@@ -2322,6 +2321,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 				lane.getAttributes().putAttribute(TO_LINK_REFERENCE, "Estimation_based_on_" + this.usedLanesEstimation);
 				break;
 			}
+			lane.getAttributes().putAttribute(TO_LINK_REFERENCE, "OSM-Information");
 			if (tempDir < 0 && tempDir > -5) { // all right directions (right,
 												// slight_right,sharp_right)
 				for (LinkVector lvec : tempLinks) {
