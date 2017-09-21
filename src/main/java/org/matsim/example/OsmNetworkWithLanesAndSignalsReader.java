@@ -1653,7 +1653,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 		SignalPlanData plan = createPlan(node, cycle);
 		controller.addSignalPlanData(plan);
 		SignalGroupSettingsData settings = null;
-		settings = createSetting(0, changeTime - INTERGREENTIME, node, group.getId());
+		settings = createSetting(0, changeTime - 2*INTERGREENTIME, node, group.getId());
 		
 		plan.addSignalGroupSettings(settings);
 		groups.addSignalGroupData(group);	
@@ -2640,6 +2640,7 @@ public class OsmNetworkWithLanesAndSignalsReader implements MatsimSomeReader {
 			return hasOneway;
 		}
 		
+		//this method is not used, but might be useful in the future
 //		public boolean isOnRoundabout() {
 //			boolean isOnRoundabout = false;
 //			for(OsmWay way : this.ways.values()){
